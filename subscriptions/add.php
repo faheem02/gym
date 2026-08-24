@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <select name="member_id" class="form-select" required>
                     <option value="">-- Select Member --</option>
                     <?php foreach ($members as $m): ?>
-                        <option value="<?php echo $m['id']; ?>"><?php echo htmlspecialchars($m['name']) . ' (' . htmlspecialchars($m['phone']) . ')'; ?></option>
+                        <option value="<?php echo $m['id']; ?>" <?php echo ($_POST['member_id'] ?? '') == $m['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($m['name']) . ' (' . htmlspecialchars($m['phone']) . ')'; ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -64,13 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <select name="plan_id" class="form-select" required>
                     <option value="">-- Select Plan --</option>
                     <?php foreach ($plans as $p): ?>
-                        <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name']) . ' - ' . $p['duration_days'] . ' days (Rs.' . number_format($p['price'], 2) . ')'; ?></option>
+                        <option value="<?php echo $p['id']; ?>" <?php echo ($_POST['plan_id'] ?? '') == $p['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($p['name']) . ' - ' . $p['duration_days'] . ' days (Rs.' . number_format($p['price'], 2) . ')'; ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
             <div class="mb-3">
                 <label class="form-label"><i class="fas fa-calendar me-1 text-muted"></i>Start Date *</label>
-                <input type="date" name="start_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
+                <input type="date" name="start_date" class="form-control" value="<?php echo htmlspecialchars($_POST['start_date'] ?? date('Y-m-d')); ?>" required>
             </div>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Assign Plan</button>

@@ -28,13 +28,14 @@ Gym Management System — a plain PHP + MySQL web app served via XAMPP. No frame
 - `subscriptions/` — CRUD + `renew.php`
 - `attendance/` — check-in listing
 - `trainers/` — CRUD + `members.php` (assigned members)
-- `staff/` — CRUD
+- `staff/` — CRUD + `salaries.php` + `ledger.php` (salary ledger)
 - `plans/` — CRUD for membership plans
 - `day_passes/` — add + listing
-- `canteen/` — sub-modules: `pos/`, `products/`, `purchases/`, `stock/`, `suppliers/` (suppliers has `payments.php` and `ledger.php`)
+- `canteen/` — sub-modules: `pos/`, `sales/`, `products/`, `purchases/`, `stock/`, `suppliers/` (suppliers has `payments.php` and `ledger.php`)
 - `expenses/` — CRUD + `categories/` + `ledger.php`
 - `cashbook/` — single `index.php`
 - `bankbook/` — single `index.php`
+- `reports/` — `profit_loss.php` (sidebar key: `profit_loss`)
 - `includes/` — `header.php` (sidebar nav, Bootstrap include), `footer.php`
 - `assets/` — `style.css` only
 - `migrations/` — `.sql` migration files (not auto-run)
@@ -42,7 +43,7 @@ Gym Management System — a plain PHP + MySQL web app served via XAMPP. No frame
 ## Conventions
 
 - **Auth guard**: Every non-login page includes `includes/header.php`, which calls `config.php` (starts session) and `auth.php` (redirects to login if no session). Never skip this chain.
-- **Page pattern**: Each page sets `$activePage` and `$pageTitle` before including `header.php`. The sidebar active state depends on `$activePage` matching expected values.
+- **Page pattern**: Each page sets `$activePage` and `$pageTitle` before including `header.php`. The sidebar active/open state depends on exact string keys (e.g. `members`, `staff_salaries`, `canteen_ledger`); dropdown sections highlight via `in_array()` over grouped keys, so use the same key as sibling pages or the menu won't open.
 - **DB access**: Direct PDO via `$pdo` global (configured in `config.php`). No ORM, no query builder. Prepared statements used for user input.
 - **URLs**: All internal links are absolute from webroot, e.g. `/gym/members/`, `/gym/subscriptions/add.php`. If relocating the app, these paths break.
 - **Migrations**: Manual — run `.sql` files from `migrations/` by hand. They are not applied automatically. Check which have been run before modifying schema.

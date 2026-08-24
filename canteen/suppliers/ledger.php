@@ -246,12 +246,139 @@ foreach ($filtered as $f) {
     </div>
 </div>
 
+<!-- ===================== PRINT-ONLY SECTION ===================== -->
+<div id="printSection">
+
+    <!-- Letterhead -->
+    <div class="print-header">
+        <div class="print-logo">&#9889;</div>
+        <div class="print-gym-name">FITNESS GYM</div>
+        <div class="print-gym-sub">Supplier Ledger</div>
+        <div class="print-gym-meta">
+            <strong><?php echo htmlspecialchars($supplier['name']); ?></strong><?php echo !empty($supplier['phone']) ? ' &nbsp;|&nbsp; Ph: ' . htmlspecialchars($supplier['phone']) : ''; ?>
+            <?php if ($dateFrom || $dateTo): ?>
+                &nbsp;|&nbsp; Period:
+                <?php echo $dateFrom ? date('d M Y', strtotime($dateFrom)) : 'Start'; ?> &ndash; <?php echo $dateTo ? date('d M Y', strtotime($dateTo)) : 'Now'; ?>
+            <?php endif; ?>
+            <?php if ($search): ?>
+                &nbsp;|&nbsp; Search: &quot;<?php echo htmlspecialchars($search); ?>&quot;
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Supplier summary boxes -->
+    <div class="print-summary">
+        <div class="print-summary-box<?php echo $balance > 0 ? ' highlight' : ''; ?>">
+            <div class="print-summary-val">Rs.<?php echo number_format(abs($balance), 0); ?></div>
+            <div class="print-summary-lbl"><?php echo $balance > 0 ? 'Outstanding Due' : ($balance < 0 ? 'Advance Paid' : 'Settled'); ?></div>
+        </div>
+        <div class="print-summary-box">
+            <div class="print-summary-val">Rs.<?php echo number_format($totalDebit, 0); ?></div>
+            <div class="print-summary-lbl">Total Purchases</div>
+        </div>
+        <div class="print-summary-box">
+            <div class="print-summary-val">Rs.<?php echo number_format($totalCredit, 0); ?></div>
+            <div class="print-summary-lbl">Total Paid</div>
+        </div>
+    </div>
+
+    <!-- Transactions table -->
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th class="text-right">Debit (Rs.)</th>
+                <th class="text-right">Credit (Rs.)</th>
+                <th class="text-right">Balance (Rs.)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($filtered)): ?>
+                <tr><td colspan="6" style="text-align:center;padding:20px;color:#666;">No transactions found.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($filtered as $i => $t): $bal = $t['balance']; ?>
+            <tr class="<?php echo $i % 2 === 0 ? 'even' : ''; ?>">
+                <td><?php echo date('d M Y', strtotime($t['date'])); ?></td>
+                <td><?php echo htmlspecialchars($t['description']); ?></td>
+                <td><?php echo $t['type'] === 'purchase' ? 'Purchase' : 'Payment'; ?></td>
+                <td class="text-right"><?php echo $t['debit'] > 0 ? number_format($t['debit'], 2) : '-'; ?></td>
+                <td class="text-right"><?php echo $t['credit'] > 0 ? number_format($t['credit'], 2) : '-'; ?></td>
+                <td class="text-right bold"><?php echo number_format(abs($bal), 2) . ($bal > 0 ? ' Dr' : ($bal < 0 ? ' Cr' : '')); ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" class="bold">Totals — <?php echo count($filtered); ?> entr(y/ies)</td>
+                <td class="text-right bold"><?php echo number_format($totalDebit, 2); ?></td>
+                <td class="text-right bold"><?php echo number_format($totalCredit, 2); ?></td>
+                <td class="text-right bold"><?php echo number_format(abs($balance), 2) . ($balance > 0 ? ' Dr' : ($balance < 0 ? ' Cr' : '')); ?></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- Footer -->
+    <div class="print-footer">
+        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
+        <span>Fitness Gym Management System</span>
+    </div>
+
+</div><!-- /printSection -->
+
 <style>
+/* ── Screen: hide print section ── */
+#printSection { display: none; }
+
+/* ── Print styles ── */
 @media print {
-    body * { visibility: hidden; }
-    #printArea, #printArea * { visibility: visible; }
-    #printArea { position: absolute; left: 0; top: 0; width: 100%; }
-    .no-print { display: none !important; }
+    /* Hide all screen UI */
+    .sidebar, .sidebar-overlay, .topbar, .hamburger,
+    .search-bar, .no-print, .alert,
+    .card, script { display: none !important; }
+
+    body        { background:#fff !important; margin:0; padding:0; font-family: Arial, sans-serif; color:#000; }
+    .layout-wrapper { display:block !important; }
+    .main-content   { margin:0 !important; width:100% !important; min-height:unset; }
+    .content        { padding:0 !important; }
+    .row.g-3.mb-4   { display:none !important; }
+    .mb-4 > .btn    { display:none !important; }
+
+    /* Show print section */
+    #printSection { display:block !important; padding: 18px 24px; }
+
+    /* ── Letterhead ── */
+    .print-header        { text-align:center; border-bottom:3px solid #1a1a2e; padding-bottom:10px; margin-bottom:14px; }
+    .print-logo          { font-size:28px; color:#f7b731; margin-bottom:2px; }
+    .print-gym-name      { font-size:20px; font-weight:900; letter-spacing:3px; color:#1a1a2e; }
+    .print-gym-sub       { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#555; margin-top:2px; }
+    .print-gym-meta      { font-size:10px; color:#444; margin-top:6px; }
+
+    /* ── Summary boxes ── */
+    .print-summary       { display:flex; gap:0; border:1px solid #1a1a2e; margin-bottom:14px; }
+    .print-summary-box   { flex:1; text-align:center; padding:8px 4px; border-right:1px solid #1a1a2e; }
+    .print-summary-box:last-child { border-right:none; }
+    .print-summary-box.highlight  { background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-summary-val   { font-size:14px; font-weight:700; }
+    .print-summary-lbl   { font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-top:2px; }
+    .print-summary-box.highlight .print-summary-lbl { color:#ccc; }
+
+    /* ── Table ── */
+    .print-table         { width:100%; border-collapse:collapse; font-size:11px; }
+    .print-table thead tr{ background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table thead th{ padding:7px 8px; text-align:left; font-weight:700; font-size:10px; letter-spacing:0.5px; }
+    .print-table tbody tr td { padding:6px 8px; border-bottom:1px solid #e0e0e0; vertical-align:middle; }
+    .print-table tbody tr.even td { background:#f9f9f9; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table tfoot tr td { padding:7px 8px; background:#f0f0f0; font-weight:700; border-top:2px solid #1a1a2e; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table .text-right { text-align:right; }
+    .print-table .bold       { font-weight:700; }
+
+    /* ── Footer ── */
+    .print-footer { display:flex; justify-content:space-between; font-size:9px; color:#666; margin-top:14px; border-top:1px solid #ccc; padding-top:6px; }
+
+    /* Page setup */
+    @page { margin: 12mm 10mm; size: A4 portrait; }
 }
 </style>
 

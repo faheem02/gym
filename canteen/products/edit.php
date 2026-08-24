@@ -22,7 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $unit = trim($_POST['unit'] ?? 'piece');
     $purchase_price = (float)($_POST['purchase_price'] ?? 0);
     $sale_price = (float)($_POST['sale_price'] ?? 0);
-    $stock_qty = (int)($_POST['stock_qty'] ?? 0);
     $min_stock = (int)($_POST['min_stock'] ?? 5);
     $status = $_POST['status'] ?? 'active';
 
@@ -31,8 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($sale_price <= 0) {
         $error = 'Sale price must be greater than 0.';
     } else {
-        $stmt = $pdo->prepare('UPDATE canteen_products SET name=?, category=?, unit=?, purchase_price=?, sale_price=?, stock_qty=?, min_stock=?, status=? WHERE id=?');
-        $stmt->execute([$name, $category ?: null, $unit, $purchase_price, $sale_price, $stock_qty, $min_stock, $status, $id]);
+        $stmt = $pdo->prepare('UPDATE canteen_products SET name=?, category=?, unit=?, purchase_price=?, sale_price=?, min_stock=?, status=? WHERE id=?');
+        $stmt->execute([$name, $category ?: null, $unit, $purchase_price, $sale_price, $min_stock, $status, $id]);
         header('Location: /gym/canteen/products/index.php?msg=updated');
         exit;
     }
@@ -87,8 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-cubes me-1 text-muted"></i>Stock Qty</label>
-                    <input type="number" name="stock_qty" class="form-control" value="<?php echo $product['stock_qty']; ?>" min="0">
+                    <label class="form-label"><i class="fas fa-cubes me-1 text-muted"></i>Current Stock</label>
+                    <div class="form-control bg-light fw-bold"><?php echo rtrim(rtrim(number_format($product['stock_qty'], 2), '0'), '.'); ?> <?php echo htmlspecialchars($product['unit']); ?></div>
+                    <small class="text-muted"><i class="fas fa-lock me-1"></i>Stock sirf Purchase ya Stock Adjustment se change hota hai</small>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label"><i class="fas fa-exclamation-triangle me-1 text-muted"></i>Min Stock Alert</label>

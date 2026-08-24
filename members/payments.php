@@ -70,36 +70,32 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-money-bill me-1 text-muted"></i>Amount (Rs.) *</label>
-                        <input type="number" step="1" name="amount" class="form-control form-control-lg" min="1" required placeholder="0">
+                        <input type="number" step="1" name="amount" class="form-control form-control-lg" min="1" required placeholder="0" value="<?php echo htmlspecialchars($_POST['amount'] ?? ''); ?>">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-list me-1 text-muted"></i>Payment For</label>
                         <select name="payment_for" class="form-select">
                             <option value="">-- Select --</option>
-                            <option value="Membership Fee">Membership Fee</option>
-                            <option value="Plan Renewal">Plan Renewal</option>
-                            <option value="Registration Fee">Registration Fee</option>
-                            <option value="Personal Training">Personal Training</option>
-                            <option value="Other">Other</option>
+                            <?php foreach (['Membership Fee', 'Plan Renewal', 'Registration Fee', 'Personal Training', 'Other'] as $pf): ?>
+                                <option value="<?php echo $pf; ?>" <?php echo ($_POST['payment_for'] ?? '') === $pf ? 'selected' : ''; ?>><?php echo $pf; ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-credit-card me-1 text-muted"></i>Payment Method</label>
                         <select name="payment_method" class="form-select">
-                            <option value="cash">Cash</option>
-                            <option value="card">Card</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="easypaisa">EasyPaisa</option>
-                            <option value="jazzcash">JazzCash</option>
+                            <?php foreach (['cash' => 'Cash', 'card' => 'Card', 'bank_transfer' => 'Bank Transfer', 'easypaisa' => 'EasyPaisa', 'jazzcash' => 'JazzCash'] as $val => $label): ?>
+                                <option value="<?php echo $val; ?>" <?php echo ($_POST['payment_method'] ?? 'cash') === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-calendar me-1 text-muted"></i>Payment Date</label>
-                        <input type="date" name="payment_date" class="form-control" value="<?php echo date('Y-m-d'); ?>">
+                        <input type="date" name="payment_date" class="form-control" value="<?php echo htmlspecialchars($_POST['payment_date'] ?? date('Y-m-d')); ?>">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-sticky-note me-1 text-muted"></i>Notes</label>
-                        <input type="text" name="notes" class="form-control" placeholder="Optional note">
+                        <input type="text" name="notes" class="form-control" placeholder="Optional note" value="<?php echo htmlspecialchars($_POST['notes'] ?? ''); ?>">
                     </div>
                     <button type="submit" class="btn btn-success btn-lg fw-bold w-100"><i class="fas fa-check-circle me-1"></i>Record Payment</button>
                 </form>

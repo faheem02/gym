@@ -8,6 +8,7 @@ $msg = $_GET['msg'] ?? '';
 if ($msg === 'added') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Member added successfully.</div>';
 if ($msg === 'updated') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Member updated successfully.</div>';
 if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Member deleted.</div>';
+if ($msg === 'delete_failed') echo '<div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i>Member could not be deleted because related records exist. Delete their payments/subscriptions first.</div>';
 
 $sql = 'SELECT m.*, t.name AS trainer_name FROM members m LEFT JOIN trainers t ON m.trainer_id = t.id';
 $params = [];
@@ -20,6 +21,13 @@ $sql .= ' ORDER BY m.id DESC';
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $members = $stmt->fetchAll();
+
+$totalMembers = count($members);
+$activeCount = 0;
+foreach ($members as $m) {
+    if ($m['status'] === 'active') $activeCount++;
+}
+$inactiveCount = $totalMembers - $activeCount;
 ?>
 
 <div class="search-bar">
@@ -31,6 +39,7 @@ $members = $stmt->fetchAll();
             </form>
         </div>
         <div class="col-md-5 col-lg-4 text-md-end">
+            <button type="button" onclick="window.print();" class="btn btn-danger fw-bold me-2" title="Print member list"><i class="fas fa-print me-1"></i>Print</button>
             <a href="add.php" class="btn btn-warning fw-bold"><i class="fas fa-plus me-1"></i>Add Member</a>
         </div>
     </div>
@@ -75,8 +84,12 @@ $members = $stmt->fetchAll();
                             </span>
                         </td>
                         <td class="text-end">
-                            <a href="edit.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fas fa-pen"></i></a>
-                            <a href="delete.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this member? This also deletes their subscriptions.');"><i class="fas fa-trash"></i></a>
+                            <div class="btn-group-actions d-inline-flex gap-1">
+                                <a href="view.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-primary" title="View"><i class="fas fa-eye"></i></a>
+                                <a href="edit.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fas fa-pen"></i></a>
+                                <a href="ledger.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-dark" title="Ledger"><i class="fas fa-book"></i></a>
+                                <a href="delete.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this member? This also deletes their subscriptions.');"><i class="fas fa-trash"></i></a>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -84,5 +97,131 @@ $members = $stmt->fetchAll();
         </table>
     </div>
 </div>
+
+<!-- ===================== PRINT-ONLY SECTION ===================== -->
+<div id="printSection">
+
+    <!-- Letterhead -->
+    <div class="print-header">
+        <div class="print-logo">&#9889;</div>
+        <div class="print-gym-name">FITNESS GYM</div>
+        <div class="print-gym-sub">Members Report</div>
+        <div class="print-gym-meta">
+            Total: <?php echo $totalMembers; ?> member(s)
+            <?php if ($search): ?> &nbsp;|&nbsp; Search: &quot;<?php echo htmlspecialchars($search); ?>&quot;<?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Summary boxes -->
+    <div class="print-summary">
+        <div class="print-summary-box">
+            <div class="print-summary-val"><?php echo $totalMembers; ?></div>
+            <div class="print-summary-lbl">Total Members</div>
+        </div>
+        <div class="print-summary-box">
+            <div class="print-summary-val"><?php echo $activeCount; ?></div>
+            <div class="print-summary-lbl">Active</div>
+        </div>
+        <div class="print-summary-box highlight">
+            <div class="print-summary-val"><?php echo $inactiveCount; ?></div>
+            <div class="print-summary-lbl">Inactive</div>
+        </div>
+    </div>
+
+    <!-- Members table -->
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Join Date</th>
+                <th>Trainer</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($members)): ?>
+                <tr><td colspan="7" style="text-align:center;padding:20px;color:#666;">No members found.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($members as $i => $m): ?>
+            <tr class="<?php echo $i % 2 === 0 ? 'even' : ''; ?>">
+                <td><?php echo $i + 1; ?></td>
+                <td><?php echo htmlspecialchars($m['name']); ?></td>
+                <td><?php echo htmlspecialchars($m['phone']); ?></td>
+                <td><?php echo htmlspecialchars($m['email'] ?? '-'); ?></td>
+                <td><?php echo date('d M Y', strtotime($m['join_date'])); ?></td>
+                <td><?php echo !empty($m['trainer_name']) ? htmlspecialchars($m['trainer_name']) : '-'; ?></td>
+                <td><?php echo ucfirst($m['status']); ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="7" class="bold">Total — <?php echo $totalMembers; ?> member(s) &nbsp;|&nbsp; Active: <?php echo $activeCount; ?> &nbsp;|&nbsp; Inactive: <?php echo $inactiveCount; ?></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- Footer -->
+    <div class="print-footer">
+        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
+        <span>Fitness Gym Management System</span>
+    </div>
+
+</div><!-- /printSection -->
+
+<style>
+/* ── Screen: hide print section ── */
+#printSection { display: none; }
+
+/* ── Print styles ── */
+@media print {
+    /* Hide all screen UI */
+    .sidebar, .sidebar-overlay, .topbar, .hamburger,
+    .search-bar, .no-print, .alert,
+    .card, script { display: none !important; }
+
+    body        { background:#fff !important; margin:0; padding:0; font-family: Arial, sans-serif; color:#000; }
+    .layout-wrapper { display:block !important; }
+    .main-content   { margin:0 !important; width:100% !important; min-height:unset; }
+    .content        { padding:0 !important; }
+
+    /* Show print section */
+    #printSection { display:block !important; padding: 18px 24px; }
+
+    /* ── Letterhead ── */
+    .print-header        { text-align:center; border-bottom:3px solid #1a1a2e; padding-bottom:10px; margin-bottom:14px; }
+    .print-logo          { font-size:28px; color:#f7b731; margin-bottom:2px; }
+    .print-gym-name      { font-size:20px; font-weight:900; letter-spacing:3px; color:#1a1a2e; }
+    .print-gym-sub       { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#555; margin-top:2px; }
+    .print-gym-meta      { font-size:10px; color:#444; margin-top:6px; }
+
+    /* ── Summary boxes ── */
+    .print-summary       { display:flex; gap:0; border:1px solid #1a1a2e; margin-bottom:14px; }
+    .print-summary-box   { flex:1; text-align:center; padding:8px 4px; border-right:1px solid #1a1a2e; }
+    .print-summary-box:last-child { border-right:none; }
+    .print-summary-box.highlight  { background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-summary-val   { font-size:14px; font-weight:700; }
+    .print-summary-lbl   { font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-top:2px; }
+    .print-summary-box.highlight .print-summary-lbl { color:#ccc; }
+
+    /* ── Table ── */
+    .print-table         { width:100%; border-collapse:collapse; font-size:11px; }
+    .print-table thead tr{ background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table thead th{ padding:7px 8px; text-align:left; font-weight:700; font-size:10px; letter-spacing:0.5px; }
+    .print-table tbody tr td { padding:6px 8px; border-bottom:1px solid #e0e0e0; vertical-align:middle; }
+    .print-table tbody tr.even td { background:#f9f9f9; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table tfoot tr td { padding:7px 8px; background:#f0f0f0; font-weight:700; border-top:2px solid #1a1a2e; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table .bold       { font-weight:700; }
+
+    /* ── Footer ── */
+    .print-footer { display:flex; justify-content:space-between; font-size:9px; color:#666; margin-top:14px; border-top:1px solid #ccc; padding-top:6px; }
+
+    /* Page setup */
+    @page { margin: 12mm 10mm; size: A4 portrait; }
+}
+</style>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -8,7 +8,13 @@ if ($msg === 'added') echo '<div class="alert alert-success py-2"><i class="fas 
 if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Purchase deleted.</div>';
 
 $purchases = $pdo->query("
-    SELECT p.*, s.name AS supplier_name
+    SELECT p.*, s.name AS supplier_name,
+        (SELECT COALESCE(SUM(qty),0) FROM canteen_purchase_items WHERE purchase_id = p.id) AS total_qty,
+        (SELECT COUNT(*) FROM canteen_purchase_items WHERE purchase_id = p.id) AS item_count,
+        (SELECT GROUP_CONCAT(COALESCE(cp.name,'Deleted') ORDER BY pi.id SEPARATOR '|')
+            FROM canteen_purchase_items pi
+            LEFT JOIN canteen_products cp ON cp.id = pi.product_id
+            WHERE pi.purchase_id = p.id) AS items_summary
     FROM canteen_purchases p
     LEFT JOIN canteen_suppliers s ON s.id = p.supplier_id
     ORDER BY p.purchase_date DESC, p.id DESC
@@ -28,6 +34,8 @@ $purchases = $pdo->query("
                     <th>#</th>
                     <th>Date</th>
                     <th>Supplier</th>
+                    <th style="min-width:220px;">Items Purchased</th>
+                    <th class="text-end">Total Qty</th>
                     <th>Total (Rs.)</th>
                     <th>Paid (Rs.)</th>
                     <th>Due (Rs.)</th>
@@ -37,7 +45,7 @@ $purchases = $pdo->query("
             </thead>
             <tbody>
                 <?php if (empty($purchases)): ?>
-                    <tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-shopping-cart me-1"></i>No purchases found.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-4"><i class="fas fa-shopping-cart me-1"></i>No purchases found.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($purchases as $p): ?>
                     <?php
@@ -50,6 +58,21 @@ $purchases = $pdo->query("
                         <td><?php echo $p['id']; ?></td>
                         <td><?php echo date('d M Y', strtotime($p['purchase_date'])); ?></td>
                         <td class="fw-semibold"><?php echo htmlspecialchars($p['supplier_name'] ?? 'Unknown'); ?></td>
+                        <td>
+                            <?php
+                            $itemNames = !empty($p['items_summary']) ? explode('|', $p['items_summary']) : [];
+                            if (empty($itemNames)): ?>
+                                <span class="text-muted">-</span>
+                            <?php else: ?>
+                                <?php foreach (array_slice($itemNames, 0, 3) as $in): ?>
+                                    <div class="small fw-semibold"><?php echo htmlspecialchars($in); ?></div>
+                                <?php endforeach; ?>
+                                <?php if (count($itemNames) > 3): ?>
+                                    <small class="text-muted">+<?php echo count($itemNames) - 3; ?> more</small>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end fw-semibold"><?php echo rtrim(rtrim(number_format($p['total_qty'], 2), '0'), '.'); ?></td>
                         <td class="fw-bold">Rs.<?php echo number_format($total, 0); ?></td>
                         <td class="text-success">Rs.<?php echo number_format($paid, 0); ?></td>
                         <td class="<?php echo $due > 0 ? 'text-danger fw-bold' : 'text-muted'; ?>">Rs.<?php echo number_format($due, 0); ?></td>

@@ -22,6 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $stmt = $pdo->prepare('INSERT INTO canteen_products (name, category, unit, purchase_price, sale_price, stock_qty, min_stock, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([$name, $category ?: null, $unit, $purchase_price, $sale_price, $stock_qty, $min_stock, $status]);
+        if ($stock_qty > 0) {
+            $product_id = (int)$pdo->lastInsertId();
+            $stmt = $pdo->prepare('INSERT INTO canteen_stock_log (product_id, type, quantity, notes) VALUES (?, "opening", ?, "Opening stock at product creation")');
+            $stmt->execute([$product_id, $stock_qty]);
+        }
         header('Location: /gym/canteen/products/index.php?msg=added');
         exit;
     }

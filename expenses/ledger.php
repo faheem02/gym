@@ -202,11 +202,191 @@ $print = $_GET['print'] ?? '';
 </div>
 <?php endif; ?>
 
+<!-- ===================== PRINT-ONLY SECTION ===================== -->
+<div id="printSection">
+
+    <!-- Letterhead -->
+    <div class="print-header">
+        <div class="print-logo">&#9889;</div>
+        <div class="print-gym-name">FITNESS GYM</div>
+        <div class="print-gym-sub">Expense Ledger</div>
+        <div class="print-gym-meta">
+            <?php if ($selectedCat > 0 && isset($catInfo)): ?>
+                <strong><?php echo htmlspecialchars($catInfo['name']); ?></strong>
+                &nbsp;|&nbsp; <?php echo $filterYear; ?><?php echo $filterMonth !== '' ? ' &ndash; ' . date('F', mktime(0,0,0,(int)$filterMonth,1)) : ' (All Months)'; ?>
+            <?php else: ?>
+                All Categories &nbsp;|&nbsp; Year: <strong><?php echo $filterYear; ?></strong>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Summary boxes -->
+    <div class="print-summary">
+        <?php if ($selectedCat > 0 && isset($catInfo)): ?>
+        <div class="print-summary-box highlight">
+            <div class="print-summary-val">Rs.<?php echo number_format($detailTotal, 0); ?></div>
+            <div class="print-summary-lbl">Category Total</div>
+        </div>
+        <div class="print-summary-box">
+            <div class="print-summary-val"><?php echo count($detailExpenses); ?></div>
+            <div class="print-summary-lbl">Entries</div>
+        </div>
+        <div class="print-summary-box">
+            <div class="print-summary-val">Rs.<?php echo number_format($allCatsTotal, 0); ?></div>
+            <div class="print-summary-lbl"><?php echo $filterYear; ?> All Categories</div>
+        </div>
+        <?php else: ?>
+        <div class="print-summary-box highlight">
+            <div class="print-summary-val">Rs.<?php echo number_format($allCatsTotal, 0); ?></div>
+            <div class="print-summary-lbl"><?php echo $filterYear; ?> Total</div>
+        </div>
+        <div class="print-summary-box">
+            <div class="print-summary-val"><?php echo count($catSummary); ?></div>
+            <div class="print-summary-lbl">Categories</div>
+        </div>
+        <div class="print-summary-box">
+            <div class="print-summary-val"><?php echo array_sum(array_column($catSummary, 'cnt')); ?></div>
+            <div class="print-summary-lbl">Entries</div>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($selectedCat > 0 && isset($catInfo)): ?>
+
+    <!-- Detail mode table -->
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Method</th>
+                <th>Receipt</th>
+                <th class="text-right">Amount (Rs.)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($detailExpenses)): ?>
+                <tr><td colspan="6" style="text-align:center;padding:20px;color:#666;">No expenses found.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($detailExpenses as $i => $de): ?>
+            <tr class="<?php echo $i % 2 === 0 ? 'even' : ''; ?>">
+                <td><?php echo $i + 1; ?></td>
+                <td><?php echo date('d M Y', strtotime($de['expense_date'])); ?></td>
+                <td><?php echo htmlspecialchars($de['description'] ?? '-'); ?></td>
+                <td><?php echo ucfirst(str_replace('_', ' ', $de['payment_method'])); ?></td>
+                <td><?php echo htmlspecialchars($de['receipt_no'] ?? '-'); ?></td>
+                <td class="text-right bold"><?php echo number_format($de['amount'], 2); ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5" class="bold">Total — <?php echo count($detailExpenses); ?> expense(s)</td>
+                <td class="text-right bold">Rs.<?php echo number_format($detailTotal, 2); ?></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <?php else: ?>
+
+    <!-- Overview mode table -->
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Category</th>
+                <th class="text-right">Entries</th>
+                <th class="text-right">Total (Rs.)</th>
+                <th class="text-right">% of Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($catSummary)): ?>
+                <tr><td colspan="5" style="text-align:center;padding:20px;color:#666;">No data found.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($catSummary as $i => $cs): $pct = $allCatsTotal > 0 ? ($cs['total'] / $allCatsTotal * 100) : 0; ?>
+            <tr class="<?php echo $i % 2 === 0 ? 'even' : ''; ?>">
+                <td><?php echo $i + 1; ?></td>
+                <td><?php echo htmlspecialchars($cs['name']); ?></td>
+                <td class="text-right"><?php echo $cs['cnt']; ?></td>
+                <td class="text-right bold"><?php echo number_format($cs['total'], 2); ?></td>
+                <td class="text-right"><?php echo number_format($pct, 1); ?>%</td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2" class="bold">Total</td>
+                <td class="text-right bold"><?php echo array_sum(array_column($catSummary, 'cnt')); ?></td>
+                <td class="text-right bold">Rs.<?php echo number_format($allCatsTotal, 2); ?></td>
+                <td class="text-right bold">100%</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <?php endif; ?>
+
+    <!-- Footer -->
+    <div class="print-footer">
+        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
+        <span>Fitness Gym Management System</span>
+    </div>
+
+</div><!-- /printSection -->
+
 <style>
+/* ── Screen: hide print section ── */
+#printSection { display: none; }
+
+/* ── Print styles ── */
 @media print {
-    body * { visibility: hidden; }
-    #printArea, #printArea * { visibility: visible; }
-    #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+    /* Hide all screen UI */
+    .sidebar, .sidebar-overlay, .topbar, .hamburger,
+    .search-bar, .no-print, .alert,
+    .card, script { display: none !important; }
+
+    body        { background:#fff !important; margin:0; padding:0; font-family: Arial, sans-serif; color:#000; }
+    .layout-wrapper { display:block !important; }
+    .main-content   { margin:0 !important; width:100% !important; min-height:unset; }
+    .content        { padding:0 !important; }
+    .row.g-3.mb-4   { display:none !important; }
+    .mb-4 > .btn    { display:none !important; }
+
+    /* Show print section */
+    #printSection { display:block !important; padding: 18px 24px; }
+
+    /* ── Letterhead ── */
+    .print-header        { text-align:center; border-bottom:3px solid #1a1a2e; padding-bottom:10px; margin-bottom:14px; }
+    .print-logo          { font-size:28px; color:#f7b731; margin-bottom:2px; }
+    .print-gym-name      { font-size:20px; font-weight:900; letter-spacing:3px; color:#1a1a2e; }
+    .print-gym-sub       { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#555; margin-top:2px; }
+    .print-gym-meta      { font-size:10px; color:#444; margin-top:6px; }
+
+    /* ── Summary boxes ── */
+    .print-summary       { display:flex; gap:0; border:1px solid #1a1a2e; margin-bottom:14px; }
+    .print-summary-box   { flex:1; text-align:center; padding:8px 4px; border-right:1px solid #1a1a2e; }
+    .print-summary-box:last-child { border-right:none; }
+    .print-summary-box.highlight  { background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-summary-val   { font-size:14px; font-weight:700; }
+    .print-summary-lbl   { font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-top:2px; }
+    .print-summary-box.highlight .print-summary-lbl { color:#ccc; }
+
+    /* ── Table ── */
+    .print-table         { width:100%; border-collapse:collapse; font-size:11px; }
+    .print-table thead tr{ background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table thead th{ padding:7px 8px; text-align:left; font-weight:700; font-size:10px; letter-spacing:0.5px; }
+    .print-table tbody tr td { padding:6px 8px; border-bottom:1px solid #e0e0e0; vertical-align:middle; }
+    .print-table tbody tr.even td { background:#f9f9f9; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table tfoot tr td { padding:7px 8px; background:#f0f0f0; font-weight:700; border-top:2px solid #1a1a2e; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .print-table .text-right { text-align:right; }
+    .print-table .bold       { font-weight:700; }
+
+    /* ── Footer ── */
+    .print-footer { display:flex; justify-content:space-between; font-size:9px; color:#666; margin-top:14px; border-top:1px solid #ccc; padding-top:6px; }
+
+    /* Page setup */
+    @page { margin: 12mm 10mm; size: A4 portrait; }
 }
 </style>
 

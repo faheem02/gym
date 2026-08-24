@@ -4,18 +4,7 @@ $pageTitle = 'Attendance';
 include __DIR__ . '/../includes/header.php';
 
 $error = '';
-$success = '';
 $date = trim($_GET['date'] ?? date('Y-m-d'));
-$members = $pdo->query('SELECT id, name, phone FROM members WHERE status = "active" ORDER BY name')->fetchAll();
-$checkedInMembers = $pdo->prepare(
-    "SELECT m.id, m.name, m.phone
-     FROM attendance a
-     JOIN members m ON m.id = a.member_id
-     WHERE a.check_in_date = ? AND a.check_out_time IS NULL
-     ORDER BY m.name"
-);
-$checkedInMembers->execute([date('Y-m-d')]);
-$checkedInMembers = $checkedInMembers->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim($_POST['action'] ?? '');
@@ -26,14 +15,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($member_id <= 0) {
             $error = 'Select a member to check in.';
         } else {
-            $stmt = $pdo->prepare('SELECT id FROM attendance WHERE member_id = ? AND check_in_date = ?');
+            $stmt = $pdo->prepare('SELECT id FROM attendance WHERE member_id = ? AND check_in_date = ? AND check_out_time IS NULL');
             $stmt->execute([$member_id, $check_date]);
             if ($stmt->fetch()) {
-                $error = 'This member is already checked in today.';
+                $error = 'This member is already checked in.';
             } else {
                 $stmt = $pdo->prepare('INSERT INTO attendance (member_id, check_in_date, check_in_time) VALUES (?, ?, ?)');
                 $stmt->execute([$member_id, $check_date, date('H:i:s')]);
-                $success = 'Check-in recorded successfully.';
+                header('Location: /gym/attendance/index.php?msg=checkin');
+                exit;
             }
         }
     } elseif ($action === 'checkout') {
@@ -47,11 +37,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $stmt = $pdo->prepare('UPDATE attendance SET check_out_time = ? WHERE member_id = ? AND check_in_date = ? AND check_out_time IS NULL');
                 $stmt->execute([date('H:i:s'), $member_id, $check_date]);
-                $success = 'Check-out recorded successfully.';
+                header('Location: /gym/attendance/index.php?msg=checkout');
+                exit;
             }
         }
     }
 }
+
+$msg = $_GET['msg'] ?? '';
+if ($msg === 'checkin') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Check-in recorded successfully.</div>';
+if ($msg === 'checkout') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Check-out recorded successfully.</div>';
+
+$members = $pdo->query('SELECT id, name, phone FROM members WHERE status = "active" ORDER BY name')->fetchAll();
+$checkedInMembers = $pdo->prepare(
+    "SELECT m.id, m.name, m.phone
+     FROM attendance a
+     JOIN members m ON m.id = a.member_id
+     WHERE a.check_in_date = ? AND a.check_out_time IS NULL
+     ORDER BY m.name"
+);
+$checkedInMembers->execute([date('Y-m-d')]);
+$checkedInMembers = $checkedInMembers->fetchAll();
 
 $stmt = $pdo->prepare(
     "SELECT a.check_in_date, a.check_in_time, a.check_out_time, m.name, m.phone
@@ -66,10 +72,6 @@ $todayLog = $stmt->fetchAll();
 
 <?php if ($error): ?>
     <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
-<?php endif; ?>
-<?php if ($success): ?>
-    <div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i><?php echo htmlspecialchars($success); ?></div>
-    <script>setTimeout(function(){ window.location.reload(); }, 1000);</script>
 <?php endif; ?>
 
 <div class="row g-4">

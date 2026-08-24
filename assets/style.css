@@ -489,6 +489,24 @@ body {
     letter-spacing: 0.3px;
 }
 
+.btn-xs {
+    --bs-btn-padding-y: 0.2rem;
+    --bs-btn-padding-x: 0.45rem;
+    font-size: 0.75rem;
+    padding: 3px 7px;
+}
+
+.table .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 26px;
+    padding: 3px 8px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
 .btn-warning {
     background: var(--accent-gradient);
     border: none;

@@ -169,6 +169,7 @@ $recentLogs = $pdo->query("
                                     <td>
                                         <?php
                                         $typeLabels = [
+                                            'opening' => ['Opening', 'dark', 'fa-boxes'],
                                             'purchase' => ['Purchased', 'success', 'fa-shopping-cart'],
                                             'sale' => ['Sold', 'primary', 'fa-cash-register'],
                                             'adjustment_in' => ['In', 'warning', 'fa-arrow-up'],

@@ -86,10 +86,30 @@ $activePage = $activePage ?? '';
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $activePage === 'staff' ? 'active' : ''; ?>" href="/gym/staff/">
+                    <a class="nav-link <?php echo in_array($activePage, ['staff','staff_salaries','staff_ledger']) ? 'active' : ''; ?> sidebar-dropdown-toggle" href="#staffMenu" data-bs-toggle="collapse" role="button" aria-expanded="<?php echo in_array($activePage, ['staff','staff_salaries','staff_ledger']) ? 'true' : 'false'; ?>">
                         <i class="fas fa-id-badge"></i>
                         <span>Staff</span>
+                        <i class="fas fa-chevron-down ms-auto small"></i>
                     </a>
+                    <div class="collapse <?php echo in_array($activePage, ['staff','staff_salaries','staff_ledger']) ? 'show' : ''; ?>" id="staffMenu">
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $activePage === 'staff' ? 'active' : ''; ?>" href="/gym/staff/">
+                                    <i class="fas fa-users me-1"></i><span>All Staff</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $activePage === 'staff_salaries' ? 'active' : ''; ?>" href="/gym/staff/salaries.php">
+                                    <i class="fas fa-money-bill-wave me-1"></i><span>Salaries</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $activePage === 'staff_ledger' ? 'active' : ''; ?>" href="/gym/staff/ledger.php">
+                                    <i class="fas fa-book me-1"></i><span>Salary Ledger</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $activePage === 'day_passes' ? 'active' : ''; ?>" href="/gym/day_passes/">
@@ -105,6 +125,12 @@ $activePage = $activePage ?? '';
                     <a class="nav-link <?php echo $activePage === 'canteen_pos' ? 'active' : ''; ?>" href="/gym/canteen/pos/">
                         <i class="fas fa-cash-register"></i>
                         <span>POS / Billing</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $activePage === 'canteen_sales' ? 'active' : ''; ?>" href="/gym/canteen/sales/">
+                        <i class="fas fa-receipt"></i>
+                        <span>Sales</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -195,6 +221,12 @@ $activePage = $activePage ?? '';
                     <a class="nav-link <?php echo $activePage === 'bankbook' ? 'active' : ''; ?>" href="/gym/bankbook/">
                         <i class="fas fa-university"></i>
                         <span>Bank Book</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo $activePage === 'profit_loss' ? 'active' : ''; ?>" href="/gym/reports/profit_loss.php">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Profit &amp; Loss</span>
                     </a>
                 </li>
             </ul>

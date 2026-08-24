@@ -4,7 +4,7 @@ $pageTitle = 'POS / Billing';
 include __DIR__ . '/../../includes/header.php';
 
 $msg = $_GET['msg'] ?? '';
-if ($msg === 'sale') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Sale completed successfully! Receipt #' . ($_GET['rid'] ?? '') . '</div>';
+if ($msg === 'sale') echo '<div class="alert alert-success py-2 d-flex justify-content-between align-items-center"><span><i class="fas fa-check-circle me-1"></i>Sale completed successfully! Receipt #' . htmlspecialchars($_GET['rid'] ?? '') . '</span><a href="/gym/canteen/sales/" class="btn btn-sm btn-outline-success fw-bold"><i class="fas fa-receipt me-1"></i>View Sales</a></div>';
 if ($msg === 'insufficient') echo '<div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i>Insufficient stock for one or more items.</div>';
 
 $products = $pdo->query("SELECT id, name, category, unit, sale_price, stock_qty AS stock FROM canteen_products WHERE status = 'active' AND stock_qty > 0 ORDER BY name")->fetchAll();
@@ -15,7 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $discount = (float)($_POST['pos_discount'] ?? 0);
     $payment_method = $_POST['pos_payment_method'] ?? 'cash';
     $received = (float)($_POST['pos_received'] ?? 0);
-    $customer_name = trim($_POST['pos_customer'] ?? '');
+    $member_id = (int)($_POST['pos_member_id'] ?? 0);
+    $walkin_name = trim($_POST['pos_customer'] ?? '');
 
     $validItems = [];
     for ($i = 0; $i < count($item_ids); $i++) {
@@ -57,10 +58,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $finalAmount = max(0, $grandTotal - $discount);
 
+            $customerName = null;
+            if ($member_id > 0) {
+                $stmt = $pdo->prepare('SELECT name FROM members WHERE id = ?');
+                $stmt->execute([$member_id]);
+                $mrow = $stmt->fetch();
+                if ($mrow) {
+                    $customerName = $mrow['name'];
+                } else {
+                    $member_id = 0;
+                }
+            }
+            if ($customerName === null && $walkin_name !== '') {
+                $customerName = $walkin_name;
+            }
+
             $receiptNo = 'RCP-' . date('Ymd') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
-            $stmt = $pdo->prepare('INSERT INTO canteen_sales (receipt_no, customer_name, total_amount, discount, final_amount, payment_method, received_amount, payment_date, sale_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE(), CURDATE(), NOW())');
-            $stmt->execute([$receiptNo, $customer_name ?: null, $grandTotal, $discount, $finalAmount, $payment_method, $received]);
+            $stmt = $pdo->prepare('INSERT INTO canteen_sales (member_id, receipt_no, customer_name, total_amount, discount, final_amount, payment_method, received_amount, payment_date, sale_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), CURDATE(), NOW())');
+            $stmt->execute([$member_id > 0 ? $member_id : null, $receiptNo, $customerName, $grandTotal, $discount, $finalAmount, $payment_method, $received]);
             $sale_id = $pdo->lastInsertId();
 
             foreach ($itemsToSell as $item) {
@@ -120,8 +136,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
                 <form method="POST" action="" id="posForm">
                     <div class="mb-2">
+                        <label class="form-label small fw-bold">Customer Type</label>
+                        <div class="btn-group btn-group-sm w-100" role="group">
+                            <input type="radio" class="btn-check" name="customer_type" value="member" id="ctMember" checked onchange="toggleCustomerType()">
+                            <label class="btn btn-outline-primary" for="ctMember"><i class="fas fa-user-tag me-1"></i>Member</label>
+                            <input type="radio" class="btn-check" name="customer_type" value="walkin" id="ctWalkin" onchange="toggleCustomerType()">
+                            <label class="btn btn-outline-warning" for="ctWalkin"><i class="fas fa-walking me-1"></i>Walk-in</label>
+                        </div>
+                    </div>
+                    <div class="mb-2 position-relative" id="memberFieldWrap">
+                        <label class="form-label small fw-bold">Select Member</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" id="memberSearch" class="form-control" placeholder="Type name or phone to search members..." autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="memberClear" title="Clear" style="display:none;"><i class="fas fa-times"></i></button>
+                        </div>
+                        <input type="hidden" name="pos_member_id" id="posMemberId" value="0">
+                        <div id="memberResults" class="list-group position-absolute w-100 shadow" style="z-index:1050; display:none; max-height:220px; overflow-y:auto;"></div>
+                        <small class="text-muted">Start typing — matching members will appear.</small>
+                    </div>
+                    <div class="mb-2" id="walkinFieldWrap" style="display:none;">
                         <label class="form-label small fw-bold">Customer Name (optional)</label>
-                        <input type="text" name="pos_customer" class="form-control form-control-sm" placeholder="Walk-in customer">
+                        <input type="text" id="walkinName" class="form-control form-control-sm" placeholder="e.g. random customer ka naam..." autocomplete="off">
+                        <small class="text-muted">Leave empty for anonymous walk-in.</small>
                     </div>
                     <div class="table-responsive mb-3" style="max-height: 240px; overflow-y: auto;">
                         <table class="table table-sm align-middle mb-0" id="cartTable">
@@ -167,6 +204,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
 let cart = [];
+
+const memberInput = document.getElementById('memberSearch');
+const memberResults = document.getElementById('memberResults');
+const memberIdInput = document.getElementById('posMemberId');
+let memberTimer = null;
+
+memberInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    clearTimeout(memberTimer);
+    if (q.length < 1) {
+        memberResults.style.display = 'none';
+        memberResults.innerHTML = '';
+        return;
+    }
+    memberTimer = setTimeout(function() {
+        fetch('/gym/canteen/pos/search_member.php?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(members) {
+                memberResults.innerHTML = '';
+                if (members.length === 0) {
+                    memberResults.innerHTML = '<span class="list-group-item small text-muted"><i class="fas fa-user-slash me-1"></i>No members found</span>';
+                } else {
+                    members.forEach(function(m) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action small py-1';
+                        btn.innerHTML = '<i class="fas fa-user me-2 text-muted"></i>' + m.name + ' <small class="text-muted">(' + (m.phone || '-') + ')</small>';
+                        btn.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            memberIdInput.value = m.id;
+                            memberInput.value = m.name;
+                            document.getElementById('memberClear').style.display = '';
+                            memberResults.style.display = 'none';
+                        });
+                        memberResults.appendChild(btn);
+                    });
+                }
+                memberResults.style.display = 'block';
+            });
+    }, 250);
+});
+
+document.getElementById('memberClear').addEventListener('click', function() {
+    memberIdInput.value = 0;
+    memberInput.value = '';
+    this.style.display = 'none';
+});
+
+function toggleCustomerType() {
+    const isWalkin = document.getElementById('ctWalkin').checked;
+    document.getElementById('walkinFieldWrap').style.display = isWalkin ? '' : 'none';
+    document.getElementById('memberFieldWrap').style.display = isWalkin ? 'none' : '';
+    if (isWalkin) {
+        memberIdInput.value = 0;
+        memberInput.value = '';
+        document.getElementById('memberClear').style.display = 'none';
+        memberResults.style.display = 'none';
+    } else {
+        document.getElementById('walkinName').value = '';
+    }
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#memberResults') && e.target !== memberInput) {
+        memberResults.style.display = 'none';
+    }
+});
 
 function filterProducts() {
     const q = document.getElementById('productSearch').value.toLowerCase();
@@ -256,6 +360,18 @@ document.getElementById('posForm').addEventListener('submit', function(e) {
         qtyInput.value = item.qty;
         form.appendChild(qtyInput);
     });
+
+    if (document.getElementById('ctWalkin').checked) {
+        const cName = document.getElementById('walkinName').value.trim();
+        if (cName !== '') {
+            const cInput = document.createElement('input');
+            cInput.type = 'hidden';
+            cInput.name = 'pos_customer';
+            cInput.value = cName;
+            form.appendChild(cInput);
+        }
+        memberIdInput.value = 0;
+    }
 });
 </script>
 
