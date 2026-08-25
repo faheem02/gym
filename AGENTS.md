@@ -16,7 +16,7 @@ Gym Management System — a plain PHP + MySQL web app served via XAMPP. No frame
 ## Setup
 
 1. Start Apache + MySQL via XAMPP Control Panel
-2. Import `database.sql` into MySQL to create `gym_db` with seed data
+2. Import `database_full.sql` into MySQL to create `gym_db` with seed data
 3. Run any files in `migrations/` that haven't been applied yet
 4. Access at `http://localhost/gym/login.php`
 5. Default credentials: `admin` / `admin123` (stored as plaintext — see Security section)
@@ -78,5 +78,5 @@ Key relationships:
 1. Create directory under project root (e.g. `reports/`)
 2. Add `index.php` with the standard page boilerplate: set `$activePage`/`$pageTitle`, include header, add content, include footer
 3. Add nav link in `includes/header.php` under appropriate section
-4. If new table needed: create migration `.sql` in `migrations/` (do not modify `database.sql` after initial setup)
+4. If new table needed: create migration `.sql` in `migrations/` (do not modify `database_full.sql` after initial setup)
 5. Follow existing CRUD pattern: `index.php` (list), `add.php`, `edit.php`, `delete.php`

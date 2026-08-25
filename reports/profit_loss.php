@@ -23,8 +23,8 @@ $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) AS total FROM member_payme
 $stmt->execute([$dateFrom, $dateTo]);
 $memberPayments = (float)$stmt->fetchColumn();
 
-// 2. Canteen Sales (net_amount = after discount)
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(net_amount),0) AS total FROM canteen_sales WHERE sale_date BETWEEN ? AND ?");
+// 2. Canteen Sales (final_amount = after discount, correct column name)
+$stmt = $pdo->prepare("SELECT COALESCE(SUM(final_amount),0) AS total FROM canteen_sales WHERE sale_date BETWEEN ? AND ?");
 $stmt->execute([$dateFrom, $dateTo]);
 $canteenSales = (float)$stmt->fetchColumn();
 
@@ -52,10 +52,16 @@ $stmt->execute([$dateFrom, $dateTo]);
 $expensesByCategory = $stmt->fetchAll();
 $totalGeneralExpenses = array_sum(array_column($expensesByCategory, 'total'));
 
-// 2. Staff Salaries paid
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) AS total FROM staff_salaries WHERE payment_date BETWEEN ? AND ?");
-$stmt->execute([$dateFrom, $dateTo]);
-$staffSalaries = (float)$stmt->fetchColumn();
+// 2. Staff Salaries paid (graceful — table may not exist on all deployments)
+try {
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) AS total FROM staff_salaries WHERE payment_date BETWEEN ? AND ?");
+    $stmt->execute([$dateFrom, $dateTo]);
+    $staffSalaries = (float)$stmt->fetchColumn();
+} catch (PDOException $e) {
+    $staffSalaries = 0; // table not yet created — run migrations/create_staff_salaries.sql
+}
+
+// prev period staff salaries
 
 // 3. Canteen Purchases (cost of goods)
 $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_amount),0) AS total FROM canteen_purchases WHERE purchase_date BETWEEN ? AND ?");
@@ -85,7 +91,7 @@ $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM member_payments WHERE
 $stmt->execute([$prevFrom, $prevTo]);
 $prevMemberPayments = (float)$stmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(net_amount),0) FROM canteen_sales WHERE sale_date BETWEEN ? AND ?");
+$stmt = $pdo->prepare("SELECT COALESCE(SUM(final_amount),0) FROM canteen_sales WHERE sale_date BETWEEN ? AND ?");
 $stmt->execute([$prevFrom, $prevTo]);
 $prevCanteenSales = (float)$stmt->fetchColumn();
 
@@ -99,9 +105,13 @@ $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE expens
 $stmt->execute([$prevFrom, $prevTo]);
 $prevExpenses = (float)$stmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM staff_salaries WHERE payment_date BETWEEN ? AND ?");
-$stmt->execute([$prevFrom, $prevTo]);
-$prevSalaries = (float)$stmt->fetchColumn();
+try {
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM staff_salaries WHERE payment_date BETWEEN ? AND ?");
+    $stmt->execute([$prevFrom, $prevTo]);
+    $prevSalaries = (float)$stmt->fetchColumn();
+} catch (PDOException $e) {
+    $prevSalaries = 0;
+}
 
 $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_amount),0) FROM canteen_purchases WHERE purchase_date BETWEEN ? AND ?");
 $stmt->execute([$prevFrom, $prevTo]);
