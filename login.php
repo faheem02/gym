@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Fitness Gym</title>
+    <title>Login - <?php echo htmlspecialchars(GYM_NAME); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/style.css">
@@ -42,10 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="col-md-5 col-sm-10">
                     <div class="card login-card">
                         <div class="login-header">
-                            <div class="login-icon">
-                                <i class="fas fa-dumbbell"></i>
+                            <div class="login-logo">
+                                <img src="logo/The Compound Logo-01.png" alt="<?php echo htmlspecialchars(GYM_NAME); ?>">
                             </div>
-                            <h3>FITNESS GYM</h3>
+                            <h3><?php echo htmlspecialchars(GYM_NAME); ?></h3>
                             <p>Sign in to your admin account</p>
                         </div>
                         <div class="login-body">

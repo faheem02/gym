@@ -262,23 +262,10 @@ $methodMeta = [
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Canteen Sales Report</div>
-        <div class="print-gym-meta">
-            <?php
-            $periodLabel = '';
-            if ($dateFrom && $dateTo)      $periodLabel = 'Period: ' . date('d M Y', strtotime($dateFrom)) . ' – ' . date('d M Y', strtotime($dateTo));
-            elseif ($dateFrom)             $periodLabel = 'From: ' . date('d M Y', strtotime($dateFrom));
-            elseif ($dateTo)               $periodLabel = 'Up to: ' . date('d M Y', strtotime($dateTo));
-            else                           $periodLabel = 'All Records';
-            if ($method)                   $periodLabel .= ' &nbsp;|&nbsp; Method: ' . htmlspecialchars($methodMeta[$method]['label'] ?? ucfirst($method));
-            if ($search)                   $periodLabel .= ' &nbsp;|&nbsp; Search: "' . htmlspecialchars($search) . '"';
-            echo $periodLabel;
-            ?>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Canteen Sales';
+    include __DIR__ . "/../../includes/print_header.php";
+    ?>
 
     <!-- Summary boxes -->
     <div class="print-summary">
@@ -356,10 +343,7 @@ $methodMeta = [
     </table>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . "/../../includes/print_footer.php"; ?>
 
 </div><!-- /printSection -->
 

@@ -144,6 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </td>
                         <td class="fw-bold">Rs.<?php echo number_format($p['amount'], 0); ?></td>
                         <td class="text-end">
+                            <div class="d-inline-flex gap-1">
+                                <a href="slip.php?id=<?php echo $p['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary" title="Print Pass"><i class="fas fa-print"></i></a>
                             <?php if (!$p['check_out_time']): ?>
                                 <form method="POST" action="" style="display:inline;" onsubmit="return confirm('Check out this visitor?');">
                                     <input type="hidden" name="action" value="checkout">
@@ -151,6 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                     <button type="submit" class="btn btn-sm btn-outline-success" title="Check Out"><i class="fas fa-sign-out-alt"></i></button>
                                 </form>
                             <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>

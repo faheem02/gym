@@ -250,21 +250,10 @@ foreach ($filtered as $f) {
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Supplier Ledger</div>
-        <div class="print-gym-meta">
-            <strong><?php echo htmlspecialchars($supplier['name']); ?></strong><?php echo !empty($supplier['phone']) ? ' &nbsp;|&nbsp; Ph: ' . htmlspecialchars($supplier['phone']) : ''; ?>
-            <?php if ($dateFrom || $dateTo): ?>
-                &nbsp;|&nbsp; Period:
-                <?php echo $dateFrom ? date('d M Y', strtotime($dateFrom)) : 'Start'; ?> &ndash; <?php echo $dateTo ? date('d M Y', strtotime($dateTo)) : 'Now'; ?>
-            <?php endif; ?>
-            <?php if ($search): ?>
-                &nbsp;|&nbsp; Search: &quot;<?php echo htmlspecialchars($search); ?>&quot;
-            <?php endif; ?>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Supplier Ledger';
+    include __DIR__ . "/../../includes/print_header.php";
+    ?>
 
     <!-- Supplier summary boxes -->
     <div class="print-summary">
@@ -320,10 +309,7 @@ foreach ($filtered as $f) {
     </table>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . "/../../includes/print_footer.php"; ?>
 
 </div><!-- /printSection -->
 

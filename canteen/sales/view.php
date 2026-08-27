@@ -71,8 +71,12 @@ $change = max(0, (float)$sale['received_amount'] - (float)$sale['final_amount'])
             <!-- Invoice Header -->
             <div class="card-header text-center py-4" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;">
                 <div class="mb-1"><i class="fas fa-dumbbell fa-2x" style="color:#f7b731;"></i></div>
-                <h4 class="fw-bold mb-0">FITNESS GYM</h4>
-                <small class="opacity-75">Canteen Sale Invoice</small>
+                <h4 class="fw-bold mb-0"><?php echo htmlspecialchars(GYM_NAME); ?></h4>
+                <div class="small opacity-75 mt-1">
+                    <?php echo htmlspecialchars(GYM_OWNER); ?> &nbsp;|&nbsp; <?php echo htmlspecialchars(GYM_PHONE); ?>
+                </div>
+                <div class="" style="font-size:11px;opacity:0.65;margin-top:2px;"><?php echo htmlspecialchars(GYM_ADDRESS); ?></div>
+                <small class="opacity-75 d-block mt-2">Canteen Sale Invoice</small>
             </div>
 
             <div class="card-body px-4 py-3">
@@ -171,7 +175,7 @@ $change = max(0, (float)$sale['received_amount'] - (float)$sale['final_amount'])
 
             <!-- Invoice Footer -->
             <div class="card-footer text-center text-muted small py-3">
-                <i class="fas fa-heart text-danger me-1"></i>Thank you for your visit! — Fitness Gym
+                <i class="fas fa-heart text-danger me-1"></i>Thank you for your visit! — <?php echo htmlspecialchars(GYM_NAME); ?>
             </div>
         </div>
     </div>

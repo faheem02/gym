@@ -206,19 +206,10 @@ $print = $_GET['print'] ?? '';
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Expense Ledger</div>
-        <div class="print-gym-meta">
-            <?php if ($selectedCat > 0 && isset($catInfo)): ?>
-                <strong><?php echo htmlspecialchars($catInfo['name']); ?></strong>
-                &nbsp;|&nbsp; <?php echo $filterYear; ?><?php echo $filterMonth !== '' ? ' &ndash; ' . date('F', mktime(0,0,0,(int)$filterMonth,1)) : ' (All Months)'; ?>
-            <?php else: ?>
-                All Categories &nbsp;|&nbsp; Year: <strong><?php echo $filterYear; ?></strong>
-            <?php endif; ?>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Expense Ledger';
+    include __DIR__ . "/../includes/print_header.php";
+    ?>
 
     <!-- Summary boxes -->
     <div class="print-summary">
@@ -328,10 +319,7 @@ $print = $_GET['print'] ?? '';
     <?php endif; ?>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . "/../includes/print_footer.php"; ?>
 
 </div><!-- /printSection -->
 

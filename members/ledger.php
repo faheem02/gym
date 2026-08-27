@@ -256,21 +256,10 @@ $activeSub = $stmt->fetch();
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Member Ledger</div>
-        <div class="print-gym-meta">
-            <strong><?php echo htmlspecialchars($member['name']); ?></strong> &nbsp;|&nbsp; Ph: <?php echo htmlspecialchars($member['phone']); ?>
-            <?php if ($dateFrom || $dateTo): ?>
-                &nbsp;|&nbsp; Period:
-                <?php echo $dateFrom ? date('d M Y', strtotime($dateFrom)) : 'Start'; ?> &ndash; <?php echo $dateTo ? date('d M Y', strtotime($dateTo)) : 'Now'; ?>
-            <?php endif; ?>
-            <?php if ($search): ?>
-                &nbsp;|&nbsp; Search: &quot;<?php echo htmlspecialchars($search); ?>&quot;
-            <?php endif; ?>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Member Ledger';
+    include __DIR__ . "/../includes/print_header.php";
+    ?>
 
     <!-- Member summary boxes -->
     <div class="print-summary">
@@ -333,10 +322,7 @@ $activeSub = $stmt->fetch();
     </table>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . "/../includes/print_footer.php"; ?>
 
 </div><!-- /printSection -->
 

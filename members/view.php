@@ -119,6 +119,18 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
                 <ul class="list-unstyled mb-0">
                     <li class="mb-3"><i class="fas fa-phone text-muted me-2"></i><span class="text-muted">Phone:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['phone']); ?></span></li>
                     <li class="mb-3"><i class="fas fa-envelope text-muted me-2"></i><span class="text-muted">Email:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['email'] ?? '-'); ?></span></li>
+                    <?php if (!empty($member['date_of_birth'])): ?>
+                    <li class="mb-3"><i class="fas fa-birthday-cake text-muted me-2"></i><span class="text-muted">Date of Birth:</span> <span class="fw-semibold"><?php echo date('d M Y', strtotime($member['date_of_birth'])); ?></span></li>
+                    <?php endif; ?>
+                    <?php if (!empty($member['gender'])): ?>
+                    <li class="mb-3"><i class="fas fa-venus-mars text-muted me-2"></i><span class="text-muted">Gender:</span> <span class="fw-semibold"><?php echo ucfirst(htmlspecialchars($member['gender'])); ?></span></li>
+                    <?php endif; ?>
+                    <?php if (!empty($member['membership_type'])): ?>
+                    <li class="mb-3"><i class="fas fa-id-card text-muted me-2"></i><span class="text-muted">Membership:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['membership_type']); ?></span></li>
+                    <?php endif; ?>
+                    <?php if (!empty($member['area_of_interest'])): ?>
+                    <li class="mb-3"><i class="fas fa-heart text-muted me-2"></i><span class="text-muted">Interests:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['area_of_interest']); ?></span></li>
+                    <?php endif; ?>
                     <li class="mb-3"><i class="fas fa-calendar text-muted me-2"></i><span class="text-muted">Join Date:</span> <span class="fw-semibold"><?php echo date('d M Y', strtotime($member['join_date'])); ?></span></li>
                     <li class="mb-0"><i class="fas fa-user-tie text-muted me-2"></i><span class="text-muted">Trainer:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['trainer_name'] ?? 'No Trainer Assigned'); ?></span><?php if (!empty($member['trainer_phone'])): ?> <small class="text-muted">(<?php echo htmlspecialchars($member['trainer_phone']); ?>)</small><?php endif; ?></li>
                 </ul>

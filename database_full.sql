@@ -32,6 +32,7 @@ DROP TABLE IF EXISTS canteen_products;
 DROP TABLE IF EXISTS expenses;
 DROP TABLE IF EXISTS expense_categories;
 DROP TABLE IF EXISTS member_payments;
+DROP TABLE IF EXISTS member_options;
 DROP TABLE IF EXISTS staff_salaries;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS attendance;
@@ -80,6 +81,10 @@ CREATE TABLE members (
     name VARCHAR(100) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(100) DEFAULT NULL,
+    date_of_birth DATE DEFAULT NULL,
+    gender ENUM('male','female','other') DEFAULT NULL,
+    membership_type VARCHAR(50) DEFAULT NULL,
+    area_of_interest TEXT DEFAULT NULL,
     join_date DATE NOT NULL,
     status ENUM('active', 'inactive') DEFAULT 'active',
     trainer_id INT DEFAULT NULL,
@@ -173,6 +178,14 @@ CREATE TABLE day_passes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_day_passes_member FOREIGN KEY (member_id)
         REFERENCES members(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE member_options (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    category ENUM('membership_type','area_of_interest') NOT NULL,
+    value VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_cat_val (category, value)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -372,3 +385,13 @@ INSERT INTO expense_categories (name, description) VALUES
 ('Cleaning', 'Cleaning supplies and services'),
 ('Marketing', 'Advertising and promotional expenses'),
 ('Miscellaneous', 'Other uncategorized expenses');
+
+INSERT INTO member_options (category, value) VALUES
+('membership_type', 'Individual'),
+('membership_type', 'Family'),
+('membership_type', 'Student'),
+('membership_type', 'Senior'),
+('area_of_interest', 'Sports & Recreation'),
+('area_of_interest', 'Social Events'),
+('area_of_interest', 'Volunteer Activities'),
+('area_of_interest', 'Educational Programs');

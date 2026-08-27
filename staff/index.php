@@ -265,16 +265,10 @@ foreach ($staff as $s) {
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Staff Report</div>
-        <div class="print-gym-meta">
-            Total: <?php echo $listTotal; ?> staff member(s)
-            &nbsp;|&nbsp; Report Date: <?php echo date('d M Y'); ?>
-            <?php if ($search): ?> &nbsp;|&nbsp; Search: &quot;<?php echo htmlspecialchars($search); ?>&quot;<?php endif; ?>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Staff & Salaries';
+    include __DIR__ . "/../includes/print_header.php";
+    ?>
 
     <!-- Summary boxes -->
     <div class="print-summary">
@@ -339,10 +333,7 @@ foreach ($staff as $s) {
     </table>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . "/../includes/print_footer.php"; ?>
 
 </div><!-- /printSection -->
 

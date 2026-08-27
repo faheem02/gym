@@ -239,23 +239,10 @@ foreach ($transactions as $t) {
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Bank Book</div>
-        <div class="print-gym-meta">
-            <?php
-            $meta = [];
-            if ($filterDateFrom !== '' || $filterDateTo !== '') {
-                $meta[] = 'Period: ' . ($filterDateFrom !== '' ? date('d M Y', strtotime($filterDateFrom)) : 'Start') . ' &ndash; ' . ($filterDateTo !== '' ? date('d M Y', strtotime($filterDateTo)) : 'Now');
-            } else {
-                $meta[] = 'All Records';
-            }
-            if ($search !== '') $meta[] = 'Search: &quot;' . htmlspecialchars($search) . '&quot;';
-            echo implode(' &nbsp;|&nbsp; ', $meta);
-            ?>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Bank Book';
+    include __DIR__ . "/../includes/print_header.php";
+    ?>
 
     <!-- Summary boxes -->
     <div class="print-summary">
@@ -322,10 +309,7 @@ foreach ($transactions as $t) {
     </table>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . "/../includes/print_footer.php"; ?>
 
 </div><!-- /printSection -->
 

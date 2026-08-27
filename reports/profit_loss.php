@@ -408,14 +408,11 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Profit &amp; Loss Statement</div>
-        <div class="print-gym-meta">
-            Period: <strong><?php echo date('d M Y', strtotime($dateFrom)); ?></strong> &ndash; <strong><?php echo date('d M Y', strtotime($dateTo)); ?></strong>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Profit & Loss Statement';
+    $printMeta = 'Period: <strong>' . date('d M Y', strtotime($dateFrom)) . '</strong> &ndash; <strong>' . date('d M Y', strtotime($dateTo)) . '</strong>';
+    include __DIR__ . '/../includes/print_header.php';
+    ?>
 
     <!-- Summary boxes -->
     <div class="print-summary">
@@ -516,10 +513,7 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
     </div>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . '/../includes/print_footer.php'; ?>
 
 </div><!-- /printSection -->
 

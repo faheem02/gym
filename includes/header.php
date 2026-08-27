@@ -11,7 +11,7 @@ $activePage = $activePage ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle); ?> - Fitness Gym</title>
+    <title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo htmlspecialchars(GYM_NAME); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/gym/assets/style.css">
@@ -22,10 +22,10 @@ $activePage = $activePage ?? '';
     <div class="layout-wrapper">
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-brand">
-                <div class="brand-icon">
-                    <i class="fas fa-dumbbell"></i>
+                <div class="brand-logo">
+                    <img src="<?php echo GYM_LOGO; ?>" alt="<?php echo htmlspecialchars(GYM_NAME); ?>">
                 </div>
-                <h5>FITNESS GYM</h5>
+                <h5><?php echo htmlspecialchars(GYM_NAME); ?></h5>
                 <small>Management System</small>
             </div>
             <ul class="nav flex-column">

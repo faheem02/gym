@@ -6,7 +6,7 @@ include __DIR__ . '/../includes/header.php';
 $error = '';
 $currentMonth = date('Y-m');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'pay_salary') {
     $staff_id = (int)($_POST['staff_id'] ?? 0);
     $amount = (float)($_POST['amount'] ?? 0);
     $payment_type = ($_POST['payment_type'] ?? 'salary') === 'advance' ? 'advance' : 'salary';
@@ -29,17 +29,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_salary') {
+    $edit_id = (int)($_POST['payment_id'] ?? 0);
+    $staff_id = (int)($_POST['staff_id'] ?? 0);
+    $amount = (float)($_POST['amount'] ?? 0);
+    $payment_type = ($_POST['payment_type'] ?? 'salary') === 'advance' ? 'advance' : 'salary';
+    $salary_month = trim($_POST['salary_month'] ?? '');
+    $payment_date = trim($_POST['payment_date'] ?? date('Y-m-d'));
+    $payment_method = $_POST['payment_method'] ?? 'cash';
+    $notes = trim($_POST['notes'] ?? '');
+
+    if ($edit_id <= 0) {
+        $error = 'Invalid payment ID.';
+    } elseif ($staff_id <= 0) {
+        $error = 'Select a staff member.';
+    } elseif ($amount <= 0) {
+        $error = 'Amount must be greater than 0.';
+    } elseif (!preg_match('/^\d{4}-\d{2}$/', $salary_month)) {
+        $error = 'Select the salary month.';
+    } else {
+        $stmt = $pdo->prepare('UPDATE staff_salaries SET staff_id = ?, amount = ?, payment_type = ?, salary_month = ?, payment_date = ?, payment_method = ?, notes = ? WHERE id = ?');
+        $stmt->execute([$staff_id, $amount, $payment_type, $salary_month, $payment_date, $payment_method, $notes ?: null, $edit_id]);
+        header('Location: /gym/staff/salaries.php?msg=updated&month=' . urlencode($salary_month));
+        exit;
+    }
+}
+
 $msg = $_GET['msg'] ?? '';
 if ($msg === 'paid') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Salary payment recorded successfully.</div>';
 if ($msg === 'advance') echo '<div class="alert alert-warning py-2"><i class="fas fa-hand-holding-usd me-1"></i>Advance payment recorded successfully.</div>';
 if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Salary payment deleted.</div>';
+if ($msg === 'updated') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Salary payment updated.</div>';
 
 $staff = $pdo->query('SELECT id, name, role, salary FROM staff WHERE status = "active" ORDER BY name')->fetchAll();
-
-// Prefill form via GET (?type=advance&staff_id=X) e.g. from staff view modal
-$prefillType = ($_GET['type'] ?? '') === 'advance' ? 'advance' : 'salary';
-$prefillStaff = (int)($_GET['staff_id'] ?? 0);
-$formType = $_POST['payment_type'] ?? $prefillType;
 
 $month = trim($_GET['month'] ?? $currentMonth);
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = $currentMonth;
@@ -51,14 +73,39 @@ $paidThisMonth = (float)$stmt->fetch()['total'];
 $payroll = (float)$pdo->query('SELECT COALESCE(SUM(salary),0) FROM staff WHERE status = "active"')->fetchColumn();
 $pending = max(0, $payroll - $paidThisMonth);
 
-// Payment history (latest first)
-$history = $pdo->query(
-    "SELECT sp.*, s.name AS staff_name, s.role
-     FROM staff_salaries sp
-     JOIN staff s ON s.id = sp.staff_id
-     ORDER BY sp.payment_date DESC, sp.id DESC
-     LIMIT 100"
-)->fetchAll();
+// Payment history with search & date filter
+$hSearch = trim($_GET['hq'] ?? '');
+$hDateFrom = $_GET['h_from'] ?? '';
+$hDateTo = $_GET['h_to'] ?? '';
+
+$hSql = "SELECT sp.*, s.name AS staff_name, s.role
+         FROM staff_salaries sp
+         JOIN staff s ON s.id = sp.staff_id";
+$hParams = [];
+$hWhere = [];
+
+if ($hSearch !== '') {
+    $hWhere[] = '(s.name LIKE ? OR s.role LIKE ? OR sp.notes LIKE ?)';
+    $like = '%' . $hSearch . '%';
+    $hParams[] = $like;
+    $hParams[] = $like;
+    $hParams[] = $like;
+}
+if ($hDateFrom !== '') {
+    $hWhere[] = 'sp.payment_date >= ?';
+    $hParams[] = $hDateFrom;
+}
+if ($hDateTo !== '') {
+    $hWhere[] = 'sp.payment_date <= ?';
+    $hParams[] = $hDateTo;
+}
+if (!empty($hWhere)) {
+    $hSql .= ' WHERE ' . implode(' AND ', $hWhere);
+}
+$hSql .= ' ORDER BY sp.payment_date DESC, sp.id DESC LIMIT 200';
+$hStmt = $pdo->prepare($hSql);
+$hStmt->execute($hParams);
+$history = $hStmt->fetchAll();
 
 // Who is paid / pending for selected month
 $paidMap = [];
@@ -103,114 +150,76 @@ foreach ($stmt->fetchAll() as $r) $paidMap[$r['staff_id']] = (float)$r['paid'];
     </div>
 </div>
 
-<div class="row g-4 mb-4">
-    <div class="col-lg-4">
-        <div class="card" style="border-top:3px solid #00b894;">
-            <div class="card-body">
-                <h6 class="fw-bold mb-3"><i class="fas fa-hand-holding-usd text-success me-2"></i><span id="payFormTitle">Pay Salary</span></h6>
-                <?php if ($error): ?>
-                    <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
-                <?php endif; ?>
-                <form method="POST" action="">
-                    <div class="btn-group w-100 mb-3" role="group">
-                        <input type="radio" class="btn-check" name="payment_type" value="salary" id="ptSalary" onchange="updatePayType()" <?php echo $formType !== 'advance' ? 'checked' : ''; ?>>
-                        <label class="btn btn-outline-success" for="ptSalary"><i class="fas fa-money-bill-wave me-1"></i>Salary</label>
-                        <input type="radio" class="btn-check" name="payment_type" value="advance" id="ptAdvance" onchange="updatePayType()" <?php echo $formType === 'advance' ? 'checked' : ''; ?>>
-                        <label class="btn btn-outline-warning" for="ptAdvance"><i class="fas fa-hand-holding-usd me-1"></i>Advance</label>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Staff *</label>
-                        <select name="staff_id" id="staffSelect" class="form-select" required onchange="fillSalary()">
-                            <option value="">-- Select Staff --</option>
-                            <?php foreach ($staff as $s): ?>
-                                <option value="<?php echo $s['id']; ?>" data-salary="<?php echo $s['salary']; ?>" <?php echo ($_POST['staff_id'] ?? $prefillStaff) == $s['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($s['name']); ?> (<?php echo ucfirst($s['role']); ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label fw-semibold" id="monthLabel">Salary Month *</label>
-                            <input type="month" name="salary_month" class="form-control" value="<?php echo htmlspecialchars($_POST['salary_month'] ?? $currentMonth); ?>" required>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label fw-semibold">Amount (Rs.) *</label>
-                            <input type="number" step="1" min="1" name="amount" id="amountInput" class="form-control" placeholder="0" value="<?php echo htmlspecialchars($_POST['amount'] ?? ''); ?>" required>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label fw-semibold">Payment Date</label>
-                            <input type="date" name="payment_date" class="form-control" value="<?php echo htmlspecialchars($_POST['payment_date'] ?? date('Y-m-d')); ?>">
-                        </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label fw-semibold">Method</label>
-                            <select name="payment_method" class="form-select">
-                                <?php foreach (['cash' => 'Cash', 'card' => 'Card', 'bank_transfer' => 'Bank Transfer', 'easypaisa' => 'EasyPaisa', 'jazzcash' => 'JazzCash'] as $val => $label): ?>
-                                    <option value="<?php echo $val; ?>" <?php echo ($_POST['payment_method'] ?? 'cash') === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Notes</label>
-                        <input type="text" name="notes" class="form-control" placeholder="Optional note" value="<?php echo htmlspecialchars($_POST['notes'] ?? ''); ?>">
-                    </div>
-                    <button type="submit" class="btn btn-success fw-bold w-100"><i class="fas fa-check-circle me-1"></i><span id="payBtnText">Record Payment</span></button>
+<div class="card mb-4" style="border-top:3px solid #6c5ce7;">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h6 class="fw-bold mb-0"><i class="fas fa-file-invoice-dollar text-primary me-2"></i>Salary Status &mdash; <?php echo date('F Y', strtotime($month . '-01')); ?></h6>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <form method="GET" action="" class="d-flex gap-1 align-items-center">
+                    <input type="month" name="month" class="form-control form-control-sm" value="<?php echo htmlspecialchars($month); ?>">
+                    <button class="btn btn-dark btn-sm"><i class="fas fa-filter me-1"></i>Filter</button>
                 </form>
+                <button type="button" class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#paySalaryModal" onclick="openPayModal()"><i class="fas fa-plus me-1"></i>Pay Salary</button>
             </div>
         </div>
-    </div>
-    <div class="col-lg-8">
-        <div class="card h-100" style="border-top:3px solid #6c5ce7;">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                    <h6 class="fw-bold mb-0"><i class="fas fa-file-invoice-dollar text-primary me-2"></i>Status &mdash; <?php echo date('F Y', strtotime($month . '-01')); ?></h6>
-                    <form method="GET" action="" class="d-flex">
-                        <input type="month" name="month" class="form-control form-control-sm me-2" value="<?php echo htmlspecialchars($month); ?>">
-                        <button class="btn btn-dark btn-sm"><i class="fas fa-filter me-1"></i>Filter</button>
-                    </form>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead><tr><th>Staff</th><th>Role</th><th class="text-end">Monthly Salary</th><th class="text-end">Paid</th><th>Status</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($staff as $s): ?>
-                                <?php $paid = $paidMap[$s['id']] ?? 0; ?>
-                                <tr>
-                                    <td class="fw-semibold"><a href="ledger.php?id=<?php echo $s['id']; ?>" class="text-decoration-none"><?php echo htmlspecialchars($s['name']); ?></a></td>
-                                    <td><small class="text-muted"><?php echo ucfirst($s['role']); ?></small></td>
-                                    <td class="text-end">Rs.<?php echo number_format($s['salary'], 0); ?></td>
-                                    <td class="text-end fw-bold text-success">Rs.<?php echo number_format($paid, 0); ?></td>
-                                    <td>
-                                        <?php if ($paid >= (float)$s['salary']): ?>
-                                            <span class="badge text-bg-success">Paid</span>
-                                        <?php elseif ($paid > 0): ?>
-                                            <span class="badge text-bg-warning">Partial</span>
-                                        <?php else: ?>
-                                            <span class="badge text-bg-danger">Due</span>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            <?php if (empty($staff)): ?>
-                                <tr><td colspan="5" class="text-center text-muted py-4">No active staff found.</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Staff</th><th>Role</th><th class="text-end">Monthly Salary</th><th class="text-end">Paid</th><th>Status</th></tr></thead>
+                <tbody>
+                    <?php foreach ($staff as $s): ?>
+                        <?php $paid = $paidMap[$s['id']] ?? 0; ?>
+                        <tr>
+                            <td class="fw-semibold"><a href="ledger.php?id=<?php echo $s['id']; ?>" class="text-decoration-none"><?php echo htmlspecialchars($s['name']); ?></a></td>
+                            <td><small class="text-muted"><?php echo ucfirst($s['role']); ?></small></td>
+                            <td class="text-end">Rs.<?php echo number_format($s['salary'], 0); ?></td>
+                            <td class="text-end fw-bold text-success">Rs.<?php echo number_format($paid, 0); ?></td>
+                            <td>
+                                <?php if ($paid >= (float)$s['salary']): ?>
+                                    <span class="badge text-bg-success"><i class="fas fa-check me-1"></i>Paid</span>
+                                <?php elseif ($paid > 0): ?>
+                                    <span class="badge text-bg-warning"><i class="fas fa-clock me-1"></i>Partial</span>
+                                <?php else: ?>
+                                    <span class="badge text-bg-danger"><i class="fas fa-times me-1"></i>Due</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($staff)): ?>
+                        <tr><td colspan="5" class="text-center text-muted py-4">No active staff found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
 <div class="card" style="border-top:3px solid #f7b731;">
     <div class="card-body">
-        <h6 class="fw-bold mb-3"><i class="fas fa-history text-warning me-2"></i>Payment History</h6>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold mb-0"><i class="fas fa-history text-warning me-2"></i>Payment History</h6>
+        </div>
+        <form method="GET" action="" class="row g-2 align-items-end mb-3">
+            <input type="hidden" name="month" value="<?php echo htmlspecialchars($month); ?>">
+            <div class="col-md">
+                <input type="text" name="hq" class="form-control form-control-sm" placeholder="Search staff, role, notes..." value="<?php echo htmlspecialchars($hSearch); ?>">
+            </div>
+            <div class="col-auto">
+                <input type="date" name="h_from" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hDateFrom); ?>" title="From date">
+            </div>
+            <div class="col-auto"><span class="text-muted small">to</span></div>
+            <div class="col-auto">
+                <input type="date" name="h_to" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hDateTo); ?>" title="To date">
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-dark btn-sm"><i class="fas fa-filter me-1"></i>Filter</button>
+                <?php if ($hSearch !== '' || $hDateFrom !== '' || $hDateTo !== ''): ?>
+                    <a href="salaries.php?month=<?php echo urlencode($month); ?>" class="btn btn-outline-secondary btn-sm" title="Clear"><i class="fas fa-times"></i></a>
+                <?php endif; ?>
+            </div>
+        </form>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead><tr><th>#</th><th>Date</th><th>Staff</th><th>Salary Month</th><th>Method</th><th>Notes</th><th class="text-end">Amount</th><th class="text-end">Action</th></tr></thead>
+                <thead><tr><th>#</th><th>Date</th><th>Staff</th><th>Salary Month</th><th>Method</th><th>Notes</th><th class="text-end">Amount</th><th class="text-end">Actions</th></tr></thead>
                 <tbody>
                     <?php if (empty($history)): ?>
                         <tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-money-bill me-1"></i>No salary payments recorded yet.</td></tr>
@@ -230,12 +239,86 @@ foreach ($stmt->fetchAll() as $r) $paidMap[$r['staff_id']] = (float)$r['paid'];
                             <td><small class="text-muted"><?php echo htmlspecialchars($p['notes'] ?? '-'); ?></small></td>
                             <td class="text-end fw-bold text-success">Rs.<?php echo number_format($p['amount'], 0); ?></td>
                             <td class="text-end">
-                                <a href="salary_delete.php?id=<?php echo $p['id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this salary payment?');"><i class="fas fa-trash"></i></a>
+                                <div class="d-inline-flex gap-1">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Edit" onclick="editPayment(<?php echo $p['id']; ?>, <?php echo $p['staff_id']; ?>, '<?php echo htmlspecialchars($p['payment_type'] ?? 'salary', ENT_QUOTES); ?>', '<?php echo htmlspecialchars($p['salary_month'], ENT_QUOTES); ?>', <?php echo $p['amount']; ?>, '<?php echo htmlspecialchars($p['payment_date'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($p['payment_method'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($p['notes'] ?? '', ENT_QUOTES); ?>')"><i class="fas fa-pen"></i></button>
+                                    <a href="salary_slip.php?id=<?php echo $p['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary" title="Print Slip"><i class="fas fa-print"></i></a>
+                                    <a href="salary_delete.php?id=<?php echo $p['id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this salary payment?');"><i class="fas fa-trash"></i></a>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pay Salary Modal -->
+<div class="modal fade" id="paySalaryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#00b894,#00a381);color:#fff;">
+                <h6 class="modal-title fw-bold"><i class="fas fa-hand-holding-usd me-2"></i><span id="payModalTitle">Pay Salary</span></h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <?php if ($error): ?>
+                    <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
+                <?php endif; ?>
+                <form method="POST" action="" id="paySalaryForm">
+                    <input type="hidden" name="action" value="pay_salary" id="formAction">
+                    <input type="hidden" name="payment_id" value="" id="editPaymentId">
+                    <div class="btn-group w-100 mb-3" role="group">
+                        <input type="radio" class="btn-check" name="payment_type" value="salary" id="ptSalary" onchange="updatePayType()" checked>
+                        <label class="btn btn-outline-success" for="ptSalary"><i class="fas fa-money-bill-wave me-1"></i>Salary</label>
+                        <input type="radio" class="btn-check" name="payment_type" value="advance" id="ptAdvance" onchange="updatePayType()">
+                        <label class="btn btn-outline-warning" for="ptAdvance"><i class="fas fa-hand-holding-usd me-1"></i>Advance</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Staff *</label>
+                        <select name="staff_id" id="staffSelect" class="form-select" required onchange="fillSalary()">
+                            <option value="">-- Select Staff --</option>
+                            <?php foreach ($staff as $s): ?>
+                                <option value="<?php echo $s['id']; ?>" data-salary="<?php echo $s['salary']; ?>" data-role="<?php echo ucfirst(htmlspecialchars($s['role'])); ?>">
+                                    <?php echo htmlspecialchars($s['name']); ?> (<?php echo ucfirst($s['role']); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold" id="monthLabel">Salary Month *</label>
+                            <input type="month" name="salary_month" class="form-control" value="<?php echo htmlspecialchars($currentMonth); ?>" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Amount (Rs.) *</label>
+                            <input type="number" step="1" min="1" name="amount" id="amountInput" class="form-control" placeholder="0" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Payment Date</label>
+                            <input type="date" name="payment_date" class="form-control" value="<?php echo date('Y-m-d'); ?>">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Method</label>
+                            <select name="payment_method" class="form-select">
+                                <?php foreach (['cash' => 'Cash', 'card' => 'Card', 'bank_transfer' => 'Bank Transfer', 'easypaisa' => 'EasyPaisa', 'jazzcash' => 'JazzCash'] as $val => $label): ?>
+                                    <option value="<?php echo $val; ?>"><?php echo $label; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Notes</label>
+                        <input type="text" name="notes" class="form-control" placeholder="Optional note">
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-success fw-bold"><i class="fas fa-check-circle me-1"></i><span id="payBtnText">Record Payment</span></button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -252,11 +335,41 @@ function fillSalary() {
 
 function updatePayType() {
     var isAdvance = document.getElementById('ptAdvance').checked;
-    document.getElementById('payFormTitle').textContent = isAdvance ? 'Give Advance' : 'Pay Salary';
+    document.getElementById('payModalTitle').textContent = isAdvance ? 'Give Advance' : 'Pay Salary';
     document.getElementById('monthLabel').textContent = isAdvance ? 'Adjust Against Month *' : 'Salary Month *';
     document.getElementById('payBtnText').textContent = isAdvance ? 'Record Advance' : 'Record Payment';
 }
-updatePayType();
+
+function openPayModal() {
+    document.getElementById('paySalaryForm').reset();
+    document.getElementById('amountInput').value = '';
+    document.getElementById('formAction').value = 'pay_salary';
+    document.getElementById('editPaymentId').value = '';
+    document.getElementById('payModalTitle').textContent = 'Pay Salary';
+    document.getElementById('payBtnText').textContent = 'Record Payment';
+    document.getElementById('monthLabel').textContent = 'Salary Month *';
+}
+
+function editPayment(id, staffId, type, month, amount, date, method, notes) {
+    document.getElementById('formAction').value = 'edit_salary';
+    document.getElementById('editPaymentId').value = id;
+    document.getElementById('payModalTitle').textContent = 'Edit Payment';
+    document.getElementById('payBtnText').textContent = 'Update Payment';
+    document.getElementById('staffSelect').value = staffId;
+    if (type === 'advance') {
+        document.getElementById('ptAdvance').checked = true;
+    } else {
+        document.getElementById('ptSalary').checked = true;
+    }
+    updatePayType();
+    document.querySelector('#paySalaryForm input[name="salary_month"]').value = month;
+    document.getElementById('amountInput').value = amount;
+    document.querySelector('#paySalaryForm input[name="payment_date"]').value = date;
+    document.querySelector('#paySalaryForm select[name="payment_method"]').value = method;
+    document.querySelector('#paySalaryForm input[name="notes"]').value = notes;
+    var modal = new bootstrap.Modal(document.getElementById('paySalaryModal'));
+    modal.show();
+}
 </script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

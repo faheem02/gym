@@ -61,7 +61,7 @@ Gym Management System — a plain PHP + MySQL web app served via XAMPP. No frame
 
 ## Schema Notes
 
-Core tables: `users`, `members`, `plans`, `subscriptions`, `attendance`, `trainers`, `staff`, `day_passes`
+Core tables: `users`, `members`, `plans`, `subscriptions`, `attendance`, `trainers`, `staff`, `day_passes`, `member_options`
 
 Financial tables: `member_payments`, `expenses`, `expense_categories`
 

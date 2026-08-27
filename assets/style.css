@@ -96,17 +96,28 @@ body {
     text-align: center;
 }
 
-.sidebar-brand .brand-icon {
-    width: 50px;
-    height: 50px;
-    background: var(--accent-gradient);
-    border-radius: 14px;
+.sidebar-brand .brand-icon,
+.sidebar-brand .brand-logo {
+    width: 80px;
+    height: 80px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
     margin-bottom: 10px;
+}
+
+.sidebar-brand .brand-icon {
+    background: var(--accent-gradient);
+    border-radius: 14px;
+    font-size: 22px;
     box-shadow: 0 4px 15px rgba(247, 183, 49, 0.3);
+}
+
+.sidebar-brand .brand-logo img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    object-fit: contain;
 }
 
 .sidebar-brand h5 {
@@ -700,17 +711,27 @@ body {
     padding: 40px 40px 0;
 }
 
+.login-card .login-icon,
+.login-card .login-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
 .login-card .login-icon {
     width: 70px;
     height: 70px;
     background: var(--accent-gradient);
     border-radius: 20px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     font-size: 1.8rem;
-    margin-bottom: 20px;
     box-shadow: 0 8px 25px rgba(247, 183, 49, 0.3);
+}
+
+.login-card .login-logo img {
+    height: 90px;
+    width: auto;
+    object-fit: contain;
 }
 
 .login-card .login-header h3 {
@@ -1196,3 +1217,17 @@ body {
 .pass-type-inner.border-warning {
     border-color: var(--accent) !important;
 }
+
+/* ==================== UNIVERSAL PRINT LETTERHEAD STYLES ==================== */
+.print-gym-contact {
+    font-size: 11px;
+    color: #333;
+    margin-top: 3px;
+    font-weight: 500;
+}
+.print-gym-address {
+    font-size: 10.5px;
+    color: #555;
+    margin-top: 2px;
+}
+

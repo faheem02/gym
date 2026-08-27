@@ -13,9 +13,9 @@ if ($msg === 'delete_failed') echo '<div class="alert alert-danger py-2"><i clas
 $sql = 'SELECT m.*, t.name AS trainer_name FROM members m LEFT JOIN trainers t ON m.trainer_id = t.id';
 $params = [];
 if ($search !== '') {
-    $sql .= ' WHERE m.name LIKE ? OR m.phone LIKE ? OR m.email LIKE ? OR t.name LIKE ?';
+    $sql .= ' WHERE m.name LIKE ? OR m.phone LIKE ? OR m.email LIKE ? OR m.membership_type LIKE ? OR t.name LIKE ?';
     $like = '%' . $search . '%';
-    $params = [$like, $like, $like, $like];
+    $params = [$like, $like, $like, $like, $like];
 }
 $sql .= ' ORDER BY m.id DESC';
 $stmt = $pdo->prepare($sql);
@@ -53,7 +53,8 @@ $inactiveCount = $totalMembers - $activeCount;
                     <th>#</th>
                     <th>Name</th>
                     <th>Phone</th>
-                    <th>Email</th>
+                    <th>Gender</th>
+                    <th>Membership</th>
                     <th>Join Date</th>
                     <th>Trainer</th>
                     <th>Status</th>
@@ -62,14 +63,15 @@ $inactiveCount = $totalMembers - $activeCount;
             </thead>
             <tbody>
                 <?php if (empty($members)): ?>
-                    <tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No members found.</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No members found.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($members as $m): ?>
                     <tr>
                         <td><?php echo $m['id']; ?></td>
                         <td class="fw-semibold"><?php echo htmlspecialchars($m['name']); ?></td>
                         <td><?php echo htmlspecialchars($m['phone']); ?></td>
-                        <td><?php echo htmlspecialchars($m['email'] ?? '-'); ?></td>
+                        <td><?php echo !empty($m['gender']) ? ucfirst(htmlspecialchars($m['gender'])) : '<span class="text-muted">-</span>'; ?></td>
+                        <td><?php echo !empty($m['membership_type']) ? '<span class="badge text-bg-info">' . htmlspecialchars($m['membership_type']) . '</span>' : '<span class="text-muted">-</span>'; ?></td>
                         <td><?php echo date('d M Y', strtotime($m['join_date'])); ?></td>
                         <td>
                             <?php if (!empty($m['trainer_name'])): ?>
@@ -85,7 +87,8 @@ $inactiveCount = $totalMembers - $activeCount;
                         </td>
                         <td class="text-end">
                             <div class="btn-group-actions d-inline-flex gap-1">
-                                <a href="view.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-primary" title="View"><i class="fas fa-eye"></i></a>
+                                <a href="slip.php?id=<?php echo $m['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary" title="Print Slip"><i class="fas fa-print"></i></a>
+                                <a href="view.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-secondary" title="View"><i class="fas fa-eye"></i></a>
                                 <a href="edit.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fas fa-pen"></i></a>
                                 <a href="ledger.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-dark" title="Ledger"><i class="fas fa-book"></i></a>
                                 <a href="delete.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this member? This also deletes their subscriptions.');"><i class="fas fa-trash"></i></a>
@@ -102,15 +105,10 @@ $inactiveCount = $totalMembers - $activeCount;
 <div id="printSection">
 
     <!-- Letterhead -->
-    <div class="print-header">
-        <div class="print-logo">&#9889;</div>
-        <div class="print-gym-name">FITNESS GYM</div>
-        <div class="print-gym-sub">Members Report</div>
-        <div class="print-gym-meta">
-            Total: <?php echo $totalMembers; ?> member(s)
-            <?php if ($search): ?> &nbsp;|&nbsp; Search: &quot;<?php echo htmlspecialchars($search); ?>&quot;<?php endif; ?>
-        </div>
-    </div>
+    <?php
+    $printReportTitle = 'Members List';
+    include __DIR__ . "/../includes/print_header.php";
+    ?>
 
     <!-- Summary boxes -->
     <div class="print-summary">
@@ -135,7 +133,8 @@ $inactiveCount = $totalMembers - $activeCount;
                 <th>#</th>
                 <th>Name</th>
                 <th>Phone</th>
-                <th>Email</th>
+                <th>Gender</th>
+                <th>Membership</th>
                 <th>Join Date</th>
                 <th>Trainer</th>
                 <th>Status</th>
@@ -143,14 +142,15 @@ $inactiveCount = $totalMembers - $activeCount;
         </thead>
         <tbody>
             <?php if (empty($members)): ?>
-                <tr><td colspan="7" style="text-align:center;padding:20px;color:#666;">No members found.</td></tr>
+                <tr><td colspan="8" style="text-align:center;padding:20px;color:#666;">No members found.</td></tr>
             <?php endif; ?>
             <?php foreach ($members as $i => $m): ?>
             <tr class="<?php echo $i % 2 === 0 ? 'even' : ''; ?>">
                 <td><?php echo $i + 1; ?></td>
                 <td><?php echo htmlspecialchars($m['name']); ?></td>
                 <td><?php echo htmlspecialchars($m['phone']); ?></td>
-                <td><?php echo htmlspecialchars($m['email'] ?? '-'); ?></td>
+                <td><?php echo !empty($m['gender']) ? ucfirst(htmlspecialchars($m['gender'])) : '-'; ?></td>
+                <td><?php echo !empty($m['membership_type']) ? htmlspecialchars($m['membership_type']) : '-'; ?></td>
                 <td><?php echo date('d M Y', strtotime($m['join_date'])); ?></td>
                 <td><?php echo !empty($m['trainer_name']) ? htmlspecialchars($m['trainer_name']) : '-'; ?></td>
                 <td><?php echo ucfirst($m['status']); ?></td>
@@ -159,16 +159,13 @@ $inactiveCount = $totalMembers - $activeCount;
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="7" class="bold">Total — <?php echo $totalMembers; ?> member(s) &nbsp;|&nbsp; Active: <?php echo $activeCount; ?> &nbsp;|&nbsp; Inactive: <?php echo $inactiveCount; ?></td>
+                <td colspan="8" class="bold">Total — <?php echo $totalMembers; ?> member(s) &nbsp;|&nbsp; Active: <?php echo $activeCount; ?> &nbsp;|&nbsp; Inactive: <?php echo $inactiveCount; ?></td>
             </tr>
         </tfoot>
     </table>
 
     <!-- Footer -->
-    <div class="print-footer">
-        <span>Printed on: <strong><?php echo date('d M Y, h:i A'); ?></strong></span>
-        <span>Fitness Gym Management System</span>
-    </div>
+    <?php include __DIR__ . "/../includes/print_footer.php"; ?>
 
 </div><!-- /printSection -->
 
