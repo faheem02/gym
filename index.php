@@ -22,6 +22,111 @@ $expiring = $pdo->query(
 )->fetchAll();
 ?>
 
+<style>
+.quick-action-card {
+    border-radius: 14px;
+    border: none;
+    transition: all 0.22s ease-in-out;
+    position: relative;
+    overflow: hidden;
+    color: #fff !important;
+    text-decoration: none;
+    display: block;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+.quick-action-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    color: #fff !important;
+}
+.quick-action-card:active {
+    transform: scale(0.98);
+}
+.quick-action-card .card-body {
+    padding: 1.15rem 1.2rem;
+    position: relative;
+    z-index: 2;
+}
+.quick-action-card .action-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+}
+.quick-action-card .action-bg-icon {
+    position: absolute;
+    right: -8px;
+    bottom: -15px;
+    font-size: 4.8rem;
+    opacity: 0.14;
+    z-index: 1;
+    pointer-events: none;
+    transform: rotate(-10deg);
+}
+.qa-pos { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.qa-member { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.qa-daypass { background: linear-gradient(135deg, #10b981, #059669); }
+.qa-stock { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+</style>
+
+<!-- Quick Action Shortcuts -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <a href="/gym/canteen/pos/" class="quick-action-card qa-pos">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="action-icon"><i class="fas fa-cash-register"></i></div>
+                <div class="overflow-hidden">
+                    <h6 class="mb-0 fw-bold text-white text-truncate">POS Billing</h6>
+                    <small class="text-white-50 text-truncate d-block">Canteen Sale &amp; Print</small>
+                </div>
+            </div>
+            <i class="fas fa-shopping-cart action-bg-icon"></i>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/gym/members/add.php" class="quick-action-card qa-member">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="action-icon"><i class="fas fa-user-plus"></i></div>
+                <div class="overflow-hidden">
+                    <h6 class="mb-0 fw-bold text-white text-truncate">Add Member</h6>
+                    <small class="text-white-50 text-truncate d-block">Register Gym Member</small>
+                </div>
+            </div>
+            <i class="fas fa-users action-bg-icon"></i>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/gym/day_passes/add.php" class="quick-action-card qa-daypass">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="action-icon"><i class="fas fa-ticket-alt"></i></div>
+                <div class="overflow-hidden">
+                    <h6 class="mb-0 fw-bold text-white text-truncate">Add Day Pass</h6>
+                    <small class="text-white-50 text-truncate d-block">Daily Entry &amp; Slip</small>
+                </div>
+            </div>
+            <i class="fas fa-receipt action-bg-icon"></i>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/gym/canteen/stock/" class="quick-action-card qa-stock">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="action-icon"><i class="fas fa-cubes"></i></div>
+                <div class="overflow-hidden">
+                    <h6 class="mb-0 fw-bold text-white text-truncate">Inventory Stock</h6>
+                    <small class="text-white-50 text-truncate d-block">Stock Levels &amp; Items</small>
+                </div>
+            </div>
+            <i class="fas fa-boxes action-bg-icon"></i>
+        </a>
+    </div>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="card stat-card">

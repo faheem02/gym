@@ -103,16 +103,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
         <form method="POST" action="" id="purchaseForm">
             <div class="row g-3 mb-4">
-                <div class="col-md-5">
+                <div class="col-md-5 position-relative">
                     <label class="form-label fw-semibold"><i class="fas fa-truck me-1 text-muted"></i>Supplier *</label>
-                    <select name="supplier_id" class="form-select" required>
-                        <option value="">Select supplier...</option>
-                        <?php foreach ($suppliers as $s): ?>
-                            <option value="<?php echo $s['id']; ?>" <?php echo $purchase['supplier_id'] == $s['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($s['name']); ?> (Balance: Rs.<?php echo number_format($s['balance'], 0); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-truck text-muted"></i></span>
+                        <input type="text" id="purchSupplierSearch" class="form-control" placeholder="Type supplier name..." autocomplete="off" spellcheck="false" required>
+                        <button type="button" class="btn btn-outline-secondary" id="clearPurchSupplier" style="display:none;"><i class="fas fa-times"></i></button>
+                    </div>
+                    <input type="hidden" name="supplier_id" id="purchSupplierId" value="<?php echo htmlspecialchars($purchase['supplier_id']); ?>" required>
+                    <div id="purchSupplierResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold"><i class="fas fa-calendar me-1 text-muted"></i>Purchase Date *</label>
@@ -236,6 +235,100 @@ document.addEventListener('DOMContentLoaded', function() {
 
     tbody.querySelectorAll('tr').forEach(function(row) { bindEvents(row); });
     recalc();
+
+    // Supplier Autocomplete
+    (function() {
+        var suppliers = <?php echo json_encode($suppliers); ?>;
+        var searchInput = document.getElementById('purchSupplierSearch');
+        var hiddenInput = document.getElementById('purchSupplierId');
+        var resultsBox = document.getElementById('purchSupplierResults');
+        var clearBtn = document.getElementById('clearPurchSupplier');
+
+        var activeId = hiddenInput.value;
+        if (activeId) {
+            var found = suppliers.find(function(s) { return s.id == activeId; });
+            if (found) {
+                searchInput.value = found.name;
+                clearBtn.style.display = 'inline-block';
+            }
+        }
+
+        function renderList(query) {
+            var q = (query || '').trim().toLowerCase();
+            resultsBox.innerHTML = '';
+
+            if (q.length < 1) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+
+            var filtered = suppliers.filter(function(s) {
+                return s.name.toLowerCase().includes(q);
+            });
+
+            if (filtered.length === 0) {
+                resultsBox.innerHTML = '<div class="list-group-item text-muted py-2 text-center small"><i class="fas fa-truck me-1"></i>No suppliers found</div>';
+                resultsBox.style.display = 'block';
+                return;
+            }
+
+            filtered.forEach(function(s) {
+                var a = document.createElement('a');
+                a.href = '#';
+                a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 small';
+                var bal = parseFloat(s.balance || 0);
+                var balText = bal > 0 ? 'Due: Rs.' + Math.round(bal).toLocaleString() : 'Rs.0';
+                a.innerHTML = '<div><strong>' + escapeHtml(s.name) + '</strong></div><span class="badge bg-light text-dark border">' + balText + '</span>';
+                
+                a.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    searchInput.value = s.name;
+                    hiddenInput.value = s.id;
+                    resultsBox.style.display = 'none';
+                    clearBtn.style.display = 'inline-block';
+                });
+                resultsBox.appendChild(a);
+            });
+
+            resultsBox.style.display = 'block';
+        }
+
+        function escapeHtml(text) {
+            var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 1) {
+                renderList(this.value);
+            }
+        });
+
+        searchInput.addEventListener('input', function() {
+            hiddenInput.value = '';
+            if (this.value.trim().length > 0) {
+                clearBtn.style.display = 'inline-block';
+            } else {
+                clearBtn.style.display = 'none';
+            }
+            renderList(this.value);
+        });
+
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            hiddenInput.value = '';
+            clearBtn.style.display = 'none';
+            resultsBox.style.display = 'none';
+            resultsBox.innerHTML = '';
+            searchInput.focus();
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#purchSupplierSearch') && !e.target.closest('#purchSupplierResults')) {
+                resultsBox.style.display = 'none';
+            }
+        });
+    })();
 });
 </script>
 

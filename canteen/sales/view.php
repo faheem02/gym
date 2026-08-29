@@ -29,11 +29,10 @@ $methodMeta = [
     'cash'         => ['label' => 'Cash',      'badge' => 'text-bg-success'],
     'card'         => ['label' => 'Card',       'badge' => 'text-bg-primary'],
     'online'       => ['label' => 'Online',     'badge' => 'text-bg-info'],
-    'easypaisa'    => ['label' => 'EasyPaisa',  'badge' => 'text-bg-warning'],
-    'jazzcash'     => ['label' => 'JazzCash',   'badge' => 'text-bg-danger'],
 ];
 $meta   = $methodMeta[$sale['payment_method']] ?? ['label' => ucfirst($sale['payment_method']), 'badge' => 'text-bg-secondary'];
 $change = max(0, (float)$sale['received_amount'] - (float)$sale['final_amount']);
+$remainingBalance = max(0, (float)$sale['final_amount'] - (float)$sale['received_amount']);
 ?>
 
 <!-- Action bar (hidden on print) -->
@@ -41,10 +40,16 @@ $change = max(0, (float)$sale['received_amount'] - (float)$sale['final_amount'])
     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="if(window.opener||window.history.length<=1){window.close();}else{window.location='/gym/canteen/sales/';}">
         <i class="fas fa-arrow-left me-1"></i>Back to Sales
     </button>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="/gym/canteen/sales/thermal_receipt.php?id=<?php echo $sale['id']; ?>" class="btn btn-dark btn-sm fw-bold">
+            <i class="fas fa-receipt me-1"></i>Thermal Receipt
+        </a>
         <a href="/gym/canteen/sales/edit.php?id=<?php echo $sale['id']; ?>" class="btn btn-warning btn-sm fw-bold">
             <i class="fas fa-edit me-1"></i>Edit
         </a>
+        <button type="button" onclick="exportElementToPDF('invoicePrint', 'Invoice_<?php echo htmlspecialchars($sale['receipt_no'] ?? $sale['id']); ?>.pdf');" class="btn btn-primary btn-sm fw-bold">
+            <i class="fas fa-file-pdf me-1"></i>Download PDF
+        </button>
         <button type="button" onclick="window.print();" class="btn btn-danger btn-sm fw-bold">
             <i class="fas fa-print me-1"></i>Print Invoice
         </button>
@@ -70,13 +75,13 @@ $change = max(0, (float)$sale['received_amount'] - (float)$sale['final_amount'])
 
             <!-- Invoice Header -->
             <div class="card-header text-center py-4" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;">
-                <div class="mb-1"><i class="fas fa-dumbbell fa-2x" style="color:#f7b731;"></i></div>
+                <div class="mb-2"><img src="<?php echo GYM_LOGO; ?>" alt="<?php echo htmlspecialchars(GYM_NAME); ?>" style="height:65px;width:auto;object-fit:contain;" onerror="this.onerror=null; this.src='/gym/logo/The%20Compound%20Logo-01.png';"></div>
                 <h4 class="fw-bold mb-0"><?php echo htmlspecialchars(GYM_NAME); ?></h4>
                 <div class="small opacity-75 mt-1">
-                    <?php echo htmlspecialchars(GYM_OWNER); ?> &nbsp;|&nbsp; <?php echo htmlspecialchars(GYM_PHONE); ?>
+                    <?php echo htmlspecialchars(GYM_PHONE); ?>
                 </div>
                 <div class="" style="font-size:11px;opacity:0.65;margin-top:2px;"><?php echo htmlspecialchars(GYM_ADDRESS); ?></div>
-                <small class="opacity-75 d-block mt-2">Canteen Sale Invoice</small>
+                <small class="opacity-75 d-block mt-2 text-warning fw-bold text-uppercase" style="letter-spacing:1.5px;">POS Receipt</small>
             </div>
 
             <div class="card-body px-4 py-3">
@@ -156,10 +161,20 @@ $change = max(0, (float)$sale['received_amount'] - (float)$sale['final_amount'])
                                 <td class="text-muted">Amount Received</td>
                                 <td class="text-end fw-semibold">Rs.<?php echo number_format($sale['received_amount'], 2); ?></td>
                             </tr>
-                            <?php if ($change > 0): ?>
+                            <?php if ($remainingBalance > 0): ?>
+                            <tr class="table-danger">
+                                <td class="fw-bold text-danger">Remaining Balance</td>
+                                <td class="text-end fw-bold text-danger">Rs.<?php echo number_format($remainingBalance, 2); ?></td>
+                            </tr>
+                            <?php elseif ($change > 0): ?>
                             <tr>
                                 <td class="text-muted">Change Returned</td>
                                 <td class="text-end fw-bold text-primary">Rs.<?php echo number_format($change, 2); ?></td>
+                            </tr>
+                            <?php else: ?>
+                            <tr>
+                                <td class="text-muted">Remaining Balance</td>
+                                <td class="text-end fw-semibold text-success">Rs.0.00 (Cleared)</td>
                             </tr>
                             <?php endif; ?>
                         </table>
@@ -199,4 +214,5 @@ window.onload = function () {
 </script>
 <?php endif; ?>
 
+<?php include __DIR__ . '/../../includes/pdf_helper.php'; ?>
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

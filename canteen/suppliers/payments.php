@@ -53,17 +53,16 @@ $payments = $stmt->fetchAll();
                     <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
                 <?php endif; ?>
                 <form method="POST" action="">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold"><i class="fas fa-truck me-1 text-muted"></i>Select Supplier *</label>
-                        <select name="supplier_id" class="form-select" required id="supplierSelect">
-                            <option value="">Choose supplier...</option>
-                            <?php foreach ($suppliers as $s): ?>
-                                <option value="<?php echo $s['id']; ?>" data-balance="<?php echo $s['balance']; ?>" <?php echo ((isset($_POST['supplier_id']) && $_POST['supplier_id'] == $s['id']) || $filterSupplier == $s['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($s['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div id="supplierBalance" class="form-text"></div>
+                    <div class="mb-3 position-relative">
+                        <label class="form-label fw-semibold"><i class="fas fa-search me-1 text-muted"></i>Search Supplier *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-truck text-muted"></i></span>
+                            <input type="text" id="paySupplierSearch" class="form-control" placeholder="Type supplier name..." autocomplete="off" spellcheck="false" required>
+                            <button type="button" class="btn btn-outline-secondary" id="clearPaySupplier" style="display:none;"><i class="fas fa-times"></i></button>
+                        </div>
+                        <input type="hidden" name="supplier_id" id="paySupplierId" value="<?php echo htmlspecialchars($_POST['supplier_id'] ?? ($filterSupplier ?: '')); ?>" required>
+                        <div id="supplierBalance" class="form-text mt-1"></div>
+                        <div id="paySupplierResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-money-bill me-1 text-muted"></i>Amount (Rs.) *</label>
@@ -141,17 +140,118 @@ $payments = $stmt->fetchAll();
 </div>
 
 <script>
-document.getElementById('supplierSelect').addEventListener('change', function() {
-    var opt = this.options[this.selectedIndex];
-    var bal = opt.getAttribute('data-balance');
-    var el = document.getElementById('supplierBalance');
-    if (bal !== null && bal !== '') {
-        var b = parseFloat(bal);
-        if (b > 0) { el.innerHTML = '<span class="text-danger fw-bold">Due: Rs.' + Math.round(b).toLocaleString() + '</span>'; }
-        else if (b < 0) { el.innerHTML = '<span class="text-success fw-bold">Advance: Rs.' + Math.round(Math.abs(b)).toLocaleString() + '</span>'; }
-        else { el.innerHTML = '<span class="text-muted">Settled (Rs.0)</span>'; }
-    } else { el.innerHTML = ''; }
-});
+(function() {
+    var suppliers = <?php echo json_encode($suppliers); ?>;
+    var searchInput = document.getElementById('paySupplierSearch');
+    var hiddenInput = document.getElementById('paySupplierId');
+    var resultsBox = document.getElementById('paySupplierResults');
+    var clearBtn = document.getElementById('clearPaySupplier');
+    var balEl = document.getElementById('supplierBalance');
+
+    // Pre-fill if active supplier ID exists
+    var activeId = hiddenInput.value;
+    if (activeId) {
+        var found = suppliers.find(function(s) { return s.id == activeId; });
+        if (found) {
+            searchInput.value = found.name;
+            clearBtn.style.display = 'inline-block';
+            showBal(found.balance);
+        }
+    }
+
+    function showBal(bal) {
+        var b = parseFloat(bal || 0);
+        if (b > 0) { balEl.innerHTML = '<span class="text-danger fw-bold"><i class="fas fa-exclamation-triangle me-1"></i>Due Balance: Rs.' + Math.round(b).toLocaleString() + '</span>'; }
+        else if (b < 0) { balEl.innerHTML = '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Advance: Rs.' + Math.round(Math.abs(b)).toLocaleString() + '</span>'; }
+        else { balEl.innerHTML = '<span class="text-muted"><i class="fas fa-info-circle me-1"></i>Settled (Rs.0)</span>'; }
+    }
+
+    function renderList(query) {
+        var q = (query || '').trim().toLowerCase();
+        resultsBox.innerHTML = '';
+
+        if (q.length < 1) {
+            resultsBox.style.display = 'none';
+            return;
+        }
+
+        var filtered = suppliers.filter(function(s) {
+            return s.name.toLowerCase().includes(q);
+        });
+
+        if (filtered.length === 0) {
+            resultsBox.innerHTML = '<div class="list-group-item text-muted py-2 text-center small"><i class="fas fa-truck me-1"></i>No suppliers found</div>';
+            resultsBox.style.display = 'block';
+            return;
+        }
+
+        filtered.forEach(function(s) {
+            var a = document.createElement('a');
+            a.href = '#';
+            a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 small';
+            var bal = parseFloat(s.balance || 0);
+            var balBadge = '';
+            if (bal > 0) {
+                balBadge = '<span class="badge text-bg-danger">Due: Rs.' + Math.round(bal).toLocaleString() + '</span>';
+            } else if (bal < 0) {
+                balBadge = '<span class="badge text-bg-success">Adv: Rs.' + Math.round(Math.abs(bal)).toLocaleString() + '</span>';
+            } else {
+                balBadge = '<span class="badge text-bg-light border">Rs.0</span>';
+            }
+            a.innerHTML = '<div><strong>' + escapeHtml(s.name) + '</strong></div>' + balBadge;
+            
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                searchInput.value = s.name;
+                hiddenInput.value = s.id;
+                resultsBox.style.display = 'none';
+                clearBtn.style.display = 'inline-block';
+                showBal(s.balance);
+            });
+            resultsBox.appendChild(a);
+        });
+
+        resultsBox.style.display = 'block';
+    }
+
+    function escapeHtml(text) {
+        var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    searchInput.addEventListener('focus', function() {
+        if (this.value.trim().length >= 1) {
+            renderList(this.value);
+        }
+    });
+
+    searchInput.addEventListener('input', function() {
+        hiddenInput.value = '';
+        balEl.innerHTML = '';
+        if (this.value.trim().length > 0) {
+            clearBtn.style.display = 'inline-block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+        renderList(this.value);
+    });
+
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        hiddenInput.value = '';
+        balEl.innerHTML = '';
+        clearBtn.style.display = 'none';
+        resultsBox.style.display = 'none';
+        resultsBox.innerHTML = '';
+        searchInput.focus();
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#paySupplierSearch') && !e.target.closest('#paySupplierResults')) {
+            resultsBox.style.display = 'none';
+        }
+    });
+})();
 </script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

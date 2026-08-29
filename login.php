@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="card login-card">
                         <div class="login-header">
                             <div class="login-logo">
-                                <img src="logo/The Compound Logo-01.png" alt="<?php echo htmlspecialchars(GYM_NAME); ?>">
+                                <img src="<?php echo GYM_LOGO; ?>" alt="<?php echo htmlspecialchars(GYM_NAME); ?>" style="height: 90px; width: auto; object-fit: contain; filter: brightness(0); -webkit-filter: brightness(0);">
                             </div>
                             <h3><?php echo htmlspecialchars(GYM_NAME); ?></h3>
                             <p>Sign in to your admin account</p>

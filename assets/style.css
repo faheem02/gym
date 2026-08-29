@@ -732,6 +732,8 @@ body {
     height: 90px;
     width: auto;
     object-fit: contain;
+    filter: brightness(0);
+    -webkit-filter: brightness(0);
 }
 
 .login-card .login-header h3 {

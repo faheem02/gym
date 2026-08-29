@@ -52,9 +52,9 @@ $rows = $stmt->fetchAll();
 </div>
 
 <div class="search-bar">
-    <form method="GET" action="" class="d-flex">
-        <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" class="form-control me-2" placeholder="Search by member name, phone, plan or trainer...">
-        <button class="btn btn-dark" type="submit"><i class="fas fa-search me-1"></i>Search</button>
+    <form method="GET" action="" class="d-flex align-items-center gap-2">
+        <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" class="form-control" placeholder="Search by member name, phone, plan or trainer...">
+        <button class="btn btn-dark btn-sm text-nowrap px-3" type="submit"><i class="fas fa-search me-1"></i>Search</button>
     </form>
 </div>
 

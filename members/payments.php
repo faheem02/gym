@@ -57,16 +57,15 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
                     <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
                 <?php endif; ?>
                 <form method="POST" action="">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold"><i class="fas fa-user me-1 text-muted"></i>Select Member *</label>
-                        <select name="member_id" class="form-select" required>
-                            <option value="">Choose member...</option>
-                            <?php foreach ($members as $m): ?>
-                                <option value="<?php echo $m['id']; ?>" <?php echo ((isset($_POST['member_id']) && $_POST['member_id'] == $m['id']) || $filterMember == $m['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($m['name']); ?> (<?php echo htmlspecialchars($m['phone']); ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="mb-3 position-relative">
+                        <label class="form-label fw-semibold"><i class="fas fa-search me-1 text-muted"></i>Search Member *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user text-muted"></i></span>
+                            <input type="text" id="payMemberSearch" class="form-control" placeholder="Type member name or phone..." autocomplete="off" spellcheck="false" required>
+                            <button type="button" class="btn btn-outline-secondary" id="clearPayMember" style="display:none;"><i class="fas fa-times"></i></button>
+                        </div>
+                        <input type="hidden" name="member_id" id="payMemberId" value="<?php echo htmlspecialchars($_POST['member_id'] ?? ($filterMember ?: '')); ?>" required>
+                        <div id="payMemberResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-money-bill me-1 text-muted"></i>Amount (Rs.) *</label>
@@ -118,22 +117,33 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <input type="date" name="date_from" class="form-control form-control-sm" value="<?php echo htmlspecialchars($filterDateFrom); ?>">
+                    <div class="col-md-3">
+                        <input type="date" name="date_from" class="form-control form-control-sm" value="<?php echo htmlspecialchars($filterDateFrom); ?>" placeholder="From">
                     </div>
-                    <div class="col-md-2">
-                        <input type="date" name="date_to" class="form-control form-control-sm" value="<?php echo htmlspecialchars($filterDateTo); ?>">
+                    <div class="col-md-3">
+                        <input type="date" name="date_to" class="form-control form-control-sm" value="<?php echo htmlspecialchars($filterDateTo); ?>" placeholder="To">
                     </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="fas fa-filter me-1"></i>Filter</button>
+                    <div class="col-md-3 d-flex gap-1">
+                        <button type="submit" class="btn btn-sm btn-dark flex-grow-1"><i class="fas fa-filter me-1"></i>Filter</button>
+                        <a href="payments.php" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times"></i></a>
                     </div>
                 </form>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead><tr><th>#</th><th>Date</th><th>Member</th><th>For</th><th>Method</th><th class="text-end">Amount</th><th>Notes</th></tr></thead>
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Member</th>
+                                <th>For</th>
+                                <th>Method</th>
+                                <th class="text-end">Amount</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             <?php if (empty($payments)): ?>
-                                <tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-money-bill me-1"></i>No payments found.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-receipt me-1"></i>No payments recorded.</td></tr>
                             <?php endif; ?>
                             <?php foreach ($payments as $i => $p): ?>
                                 <tr>
@@ -155,5 +165,99 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+    var members = <?php echo json_encode($members); ?>;
+    var searchInput = document.getElementById('payMemberSearch');
+    var hiddenInput = document.getElementById('payMemberId');
+    var resultsBox = document.getElementById('payMemberResults');
+    var clearBtn = document.getElementById('clearPayMember');
+
+    // Pre-fill if active member ID exists
+    var activeId = hiddenInput.value;
+    if (activeId) {
+        var found = members.find(function(m) { return m.id == activeId; });
+        if (found) {
+            searchInput.value = found.name + (found.phone ? ' (' + found.phone + ')' : '');
+            clearBtn.style.display = 'inline-block';
+        }
+    }
+
+    function renderList(query) {
+        var q = (query || '').trim().toLowerCase();
+        resultsBox.innerHTML = '';
+
+        if (q.length < 1) {
+            resultsBox.style.display = 'none';
+            return;
+        }
+
+        var filtered = members.filter(function(m) {
+            return m.name.toLowerCase().includes(q) || (m.phone && m.phone.toLowerCase().includes(q));
+        });
+
+        if (filtered.length === 0) {
+            resultsBox.innerHTML = '<div class="list-group-item text-muted py-2 text-center small"><i class="fas fa-user-slash me-1"></i>No members found</div>';
+            resultsBox.style.display = 'block';
+            return;
+        }
+
+        filtered.slice(0, 40).forEach(function(m) {
+            var a = document.createElement('a');
+            a.href = '#';
+            a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 small';
+            a.innerHTML = '<div><strong>' + escapeHtml(m.name) + '</strong><br><span class="text-muted"><i class="fas fa-phone me-1"></i>' + (m.phone || 'No phone') + '</span></div><span class="badge bg-light text-dark border">Select</span>';
+            
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                searchInput.value = m.name + (m.phone ? ' (' + m.phone + ')' : '');
+                hiddenInput.value = m.id;
+                resultsBox.style.display = 'none';
+                clearBtn.style.display = 'inline-block';
+            });
+            resultsBox.appendChild(a);
+        });
+
+        resultsBox.style.display = 'block';
+    }
+
+    function escapeHtml(text) {
+        var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    searchInput.addEventListener('focus', function() {
+        if (this.value.trim().length >= 1) {
+            renderList(this.value);
+        }
+    });
+
+    searchInput.addEventListener('input', function() {
+        hiddenInput.value = '';
+        if (this.value.trim().length > 0) {
+            clearBtn.style.display = 'inline-block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+        renderList(this.value);
+    });
+
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        hiddenInput.value = '';
+        clearBtn.style.display = 'none';
+        resultsBox.style.display = 'none';
+        resultsBox.innerHTML = '';
+        searchInput.focus();
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#payMemberSearch') && !e.target.closest('#payMemberResults')) {
+            resultsBox.style.display = 'none';
+        }
+    });
+})();
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

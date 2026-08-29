@@ -25,6 +25,7 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
 $stmt2 = $pdo->prepare("SELECT * FROM member_payments WHERE member_id = ? ORDER BY id DESC LIMIT 1");
 $stmt2->execute([$id]);
 $lastPayment = $stmt2->fetch();
+$autoprint = !empty($_GET['autoprint']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -325,11 +326,10 @@ $lastPayment = $stmt2->fetch();
         <!-- Header -->
         <div class="print-header">
             <div class="brand">
-                <img src="<?php echo GYM_LOGO; ?>" alt="Logo">
+                <img src="<?php echo GYM_LOGO; ?>" alt="Logo" onerror="this.onerror=null; this.src='/gym/logo/The%20Compound%20Logo-01.png';">
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars(GYM_NAME); ?></h1>
-                    <p><?php echo htmlspecialchars(GYM_OWNER); ?><br>
-                    <?php echo htmlspecialchars(GYM_PHONE); ?> &middot; <?php echo htmlspecialchars(GYM_ADDRESS); ?></p>
+                    <p><?php echo htmlspecialchars(GYM_PHONE); ?> &middot; <?php echo htmlspecialchars(GYM_ADDRESS); ?></p>
                 </div>
             </div>
             <div class="doc-meta">
@@ -437,7 +437,6 @@ $lastPayment = $stmt2->fetch();
                 <div class="sig-block">
                     <div class="sig-line"></div>
                     <div class="sig-label">Authorized Signature</div>
-                    <div class="sig-name"><?php echo htmlspecialchars(GYM_OWNER); ?></div>
                 </div>
             </div>
         </div>
@@ -458,9 +457,56 @@ $lastPayment = $stmt2->fetch();
         <button class="btn-print" onclick="window.print();">
             <i class="fas fa-print me-1"></i> Print Slip
         </button>
+        <button class="btn-print" style="background:#0284c7;" onclick="downloadSlipPDF();">
+            <i class="fas fa-file-pdf me-1"></i> Download PDF
+        </button>
         <a href="index.php" class="btn-back">
             <i class="fas fa-arrow-left me-1"></i> Back
         </a>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+    function downloadSlipPDF() {
+        var element = document.querySelector('.page');
+        if (!element) return;
+
+        var btn = event && event.target ? event.target.closest('button') : null;
+        var originalHTML = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Generating...';
+        }
+
+        var opt = {
+            margin:       [8, 8, 8, 8],
+            filename:     'Membership_Slip_<?php echo str_pad($member['id'], 5, '0', STR_PAD_LEFT); ?>.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(function() {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }).catch(function(err) {
+            console.error('PDF error:', err);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        });
+    }
+
+    <?php if ($autoprint): ?>
+    window.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function() {
+            window.print();
+        }, 400);
+    });
+    <?php endif; ?>
+    </script>
 </body>
 </html>

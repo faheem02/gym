@@ -15,24 +15,118 @@ if ($id <= 0) {
                     <div class="text-center mb-4">
                         <div class="stat-icon mx-auto mb-3" style="width:60px;height:60px;font-size:1.5rem;background:linear-gradient(135deg,#f7b731,#f5a623);box-shadow:0 4px 15px rgba(247,183,49,0.3);color:#fff;"><i class="fas fa-book"></i></div>
                         <h5 class="fw-bold mb-1">Member Ledger</h5>
-                        <p class="text-muted mb-0">Select a member to view their payment history & balance</p>
+                        <p class="text-muted mb-0">Search member name or phone to view their payment history &amp; balance</p>
                     </div>
-                    <form method="GET" action="">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold"><i class="fas fa-user me-1 text-muted"></i>Select Member</label>
-                            <select name="id" class="form-select form-select-lg" required id="ledgerMember">
-                                <option value="">-- Choose Member --</option>
-                                <?php foreach ($allMembers as $m): ?>
-                                    <option value="<?php echo $m['id']; ?>"><?php echo htmlspecialchars($m['name']); ?> (<?php echo htmlspecialchars($m['phone']); ?>)</option>
-                                <?php endforeach; ?>
-                            </select>
+                    <form method="GET" action="" id="memberLedgerForm">
+                        <div class="mb-3 position-relative">
+                            <label class="form-label fw-semibold"><i class="fas fa-search me-1 text-muted"></i>Search Member *</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-user"></i></span>
+                                <input type="text" id="memberSearchInput" class="form-control" placeholder="Type first letter or name..." autocomplete="off" spellcheck="false" autofocus>
+                                <button type="button" class="btn btn-outline-secondary" id="clearMemberSearch" style="display:none;"><i class="fas fa-times"></i></button>
+                            </div>
+                            <input type="hidden" name="id" id="selectedMemberId" value="" required>
+
+                            <!-- Dropdown Results Box -->
+                            <div id="memberSearchResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:260px; overflow-y:auto; display:none; border-radius:8px;"></div>
                         </div>
-                        <button type="submit" class="btn btn-lg fw-bold w-100" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-arrow-right me-1"></i>View Ledger</button>
+
+                        <button type="submit" id="viewLedgerBtn" class="btn btn-lg fw-bold w-100" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;" disabled><i class="fas fa-arrow-right me-1"></i>View Ledger</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+    (function() {
+        var members = <?php echo json_encode($allMembers); ?>;
+        var searchInput = document.getElementById('memberSearchInput');
+        var hiddenInput = document.getElementById('selectedMemberId');
+        var resultsBox = document.getElementById('memberSearchResults');
+        var clearBtn = document.getElementById('clearMemberSearch');
+        var viewBtn = document.getElementById('viewLedgerBtn');
+        var form = document.getElementById('memberLedgerForm');
+
+        function renderList(query) {
+            var q = (query || '').trim().toLowerCase();
+            resultsBox.innerHTML = '';
+
+            if (q.length < 1) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+
+            var filtered = members.filter(function(m) {
+                return m.name.toLowerCase().includes(q) || (m.phone && m.phone.toLowerCase().includes(q));
+            });
+
+            if (filtered.length === 0) {
+                resultsBox.innerHTML = '<div class="list-group-item text-muted py-3 text-center"><i class="fas fa-user-slash me-1"></i>No matching members found</div>';
+                resultsBox.style.display = 'block';
+                return;
+            }
+
+            filtered.slice(0, 50).forEach(function(m) {
+                var a = document.createElement('a');
+                a.href = '#';
+                a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3';
+                a.innerHTML = '<div><strong class="text-dark">' + escapeHtml(m.name) + '</strong><br><small class="text-muted"><i class="fas fa-phone me-1"></i>' + (m.phone || 'No Phone') + '</small></div><span class="badge bg-light text-dark border">Select</span>';
+                
+                a.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    searchInput.value = m.name + (m.phone ? ' (' + m.phone + ')' : '');
+                    hiddenInput.value = m.id;
+                    resultsBox.style.display = 'none';
+                    clearBtn.style.display = 'inline-block';
+                    viewBtn.disabled = false;
+                    form.submit();
+                });
+                resultsBox.appendChild(a);
+            });
+
+            resultsBox.style.display = 'block';
+        }
+
+        function escapeHtml(text) {
+            var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 1) {
+                renderList(this.value);
+            }
+        });
+
+        searchInput.addEventListener('input', function() {
+            hiddenInput.value = '';
+            viewBtn.disabled = true;
+            if (this.value.trim().length > 0) {
+                clearBtn.style.display = 'inline-block';
+            } else {
+                clearBtn.style.display = 'none';
+            }
+            renderList(this.value);
+        });
+
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            hiddenInput.value = '';
+            clearBtn.style.display = 'none';
+            viewBtn.disabled = true;
+            resultsBox.style.display = 'none';
+            resultsBox.innerHTML = '';
+            searchInput.focus();
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#memberLedgerForm')) {
+                resultsBox.style.display = 'none';
+            }
+        });
+    })();
+    </script>
     <?php
     include __DIR__ . '/../includes/footer.php';
     exit;
@@ -202,6 +296,7 @@ $activeSub = $stmt->fetch();
             <h6 class="fw-bold mb-0"><i class="fas fa-book me-2" style="color:#f7b731;"></i>Ledger &mdash; <?php echo htmlspecialchars($member['name']); ?></h6>
             <div class="d-flex gap-2">
                 <a href="payments.php?member_id=<?php echo $id; ?>" class="btn btn-success fw-bold btn-sm"><i class="fas fa-plus me-1"></i>Record Payment</a>
+                <button type="button" onclick="downloadMemberLedgerPDF();" class="btn btn-primary fw-bold btn-sm"><i class="fas fa-file-pdf me-1"></i>Download PDF</button>
                 <button onclick="window.print();" class="btn btn-danger fw-bold btn-sm"><i class="fas fa-print me-1"></i>Print</button>
             </div>
         </div>
@@ -328,58 +423,200 @@ $activeSub = $stmt->fetch();
 
 <style>
 /* ── Screen: hide print section ── */
-#printSection { display: none; }
+#printSection {
+    display: none;
+    background: #ffffff;
+    color: #111111;
+    font-family: Arial, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-/* ── Print styles ── */
+/* ── Print & PDF Styles ── */
+#printSection .print-header {
+    text-align: center;
+    border-bottom: 2px solid #1a1a2e;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+#printSection .print-logo { margin-bottom: 6px; }
+#printSection .print-logo img {
+    height: 55px;
+    width: auto;
+    display: inline-block;
+    object-fit: contain;
+    filter: brightness(0);
+    -webkit-filter: brightness(0);
+}
+#printSection .print-gym-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #1a1a2e;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+#printSection .print-gym-contact { font-size: 11px; color: #333333; margin-top: 3px; }
+#printSection .print-gym-address { font-size: 10.5px; color: #555555; margin-top: 2px; }
+#printSection .print-gym-sub {
+    font-size: 12.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #1a1a2e;
+    font-weight: 700;
+    margin-top: 8px;
+    padding: 3px 0;
+    border-top: 1px dashed #cccccc;
+    border-bottom: 1px dashed #cccccc;
+}
+#printSection .print-gym-meta { font-size: 11px; color: #333333; margin-top: 5px; }
+
+/* ── Summary boxes ── */
+#printSection .print-summary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+#printSection .print-summary-box {
+    flex: 1;
+    text-align: center;
+    padding: 10px 8px;
+    border: 1px solid #1a1a2e;
+    border-radius: 4px;
+    background: #fdfdfd;
+}
+#printSection .print-summary-box.highlight {
+    background: #1a1a2e !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-summary-val { font-size: 16px; font-weight: 700; }
+#printSection .print-summary-lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666666;
+    margin-top: 3px;
+}
+#printSection .print-summary-box.highlight .print-summary-lbl { color: #dddddd !important; }
+
+#printSection .print-plan-line {
+    font-size: 10.5px;
+    color: #333333;
+    border: 1px dashed #999999;
+    padding: 6px 10px;
+    margin-bottom: 14px;
+    background: #fafafa;
+}
+
+/* ── Table ── */
+#printSection .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-bottom: 16px;
+}
+#printSection .print-table thead tr {
+    background: #1a1a2e !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table thead th {
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+    border: 1px solid #1a1a2e;
+    color: #ffffff;
+}
+#printSection .print-table tbody tr td {
+    padding: 7px 10px;
+    border: 1px solid #e0e0e0;
+    vertical-align: middle;
+}
+#printSection .print-table tbody tr.even td {
+    background: #f9fafb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table tfoot tr td {
+    padding: 8px 10px;
+    background: #f3f4f6 !important;
+    font-weight: 700;
+    border: 1px solid #d1d5db;
+    border-top: 2px solid #1a1a2e;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table .text-right { text-align: right; }
+#printSection .print-table .bold { font-weight: 700; }
+
+/* ── Footer ── */
+#printSection .print-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    color: #666666;
+    margin-top: 16px;
+    border-top: 1px solid #cccccc;
+    padding-top: 8px;
+}
+
+/* ── Print Media ── */
 @media print {
-    /* Hide all screen UI */
     .sidebar, .sidebar-overlay, .topbar, .hamburger,
     .search-bar, .no-print, .alert,
     .card, script { display: none !important; }
 
-    body        { background:#fff !important; margin:0; padding:0; font-family: Arial, sans-serif; color:#000; }
-    .layout-wrapper { display:block !important; }
-    .main-content   { margin:0 !important; width:100% !important; min-height:unset; }
-    .content        { padding:0 !important; }
-    .row.g-3.mb-4   { display:none !important; }
+    body { background: #fff !important; margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }
+    .layout-wrapper { display: block !important; }
+    .main-content { margin: 0 !important; width: 100% !important; min-height: unset; }
+    .content { padding: 0 !important; }
 
-    /* Show print section */
-    #printSection { display:block !important; padding: 18px 24px; }
-
-    /* ── Letterhead ── */
-    .print-header        { text-align:center; border-bottom:3px solid #1a1a2e; padding-bottom:10px; margin-bottom:14px; }
-    .print-logo          { font-size:28px; color:#f7b731; margin-bottom:2px; }
-    .print-gym-name      { font-size:20px; font-weight:900; letter-spacing:3px; color:#1a1a2e; }
-    .print-gym-sub       { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#555; margin-top:2px; }
-    .print-gym-meta      { font-size:10px; color:#444; margin-top:6px; }
-
-    /* ── Summary boxes ── */
-    .print-summary       { display:flex; gap:0; border:1px solid #1a1a2e; margin-bottom:14px; }
-    .print-summary-box   { flex:1; text-align:center; padding:8px 4px; border-right:1px solid #1a1a2e; }
-    .print-summary-box:last-child { border-right:none; }
-    .print-summary-box.highlight  { background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-summary-val   { font-size:14px; font-weight:700; }
-    .print-summary-lbl   { font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-top:2px; }
-    .print-summary-box.highlight .print-summary-lbl { color:#ccc; }
-
-    .print-plan-line     { font-size:10.5px; color:#444; border:1px dashed #999; padding:5px 8px; margin-bottom:12px; }
-
-    /* ── Table ── */
-    .print-table         { width:100%; border-collapse:collapse; font-size:11px; }
-    .print-table thead tr{ background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table thead th{ padding:7px 8px; text-align:left; font-weight:700; font-size:10px; letter-spacing:0.5px; }
-    .print-table tbody tr td { padding:6px 8px; border-bottom:1px solid #e0e0e0; vertical-align:middle; }
-    .print-table tbody tr.even td { background:#f9f9f9; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table tfoot tr td { padding:7px 8px; background:#f0f0f0; font-weight:700; border-top:2px solid #1a1a2e; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table .text-right { text-align:right; }
-    .print-table .bold       { font-weight:700; }
-
-    /* ── Footer ── */
-    .print-footer { display:flex; justify-content:space-between; font-size:9px; color:#666; margin-top:14px; border-top:1px solid #ccc; padding-top:6px; }
-
-    /* Page setup */
+    #printSection { display: block !important; padding: 18px 24px; }
     @page { margin: 12mm 10mm; size: A4 portrait; }
 }
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+function downloadMemberLedgerPDF() {
+    var printSection = document.getElementById('printSection');
+    if (!printSection) return;
+
+    var btn = event && event.target ? event.target.closest('button') : null;
+    var originalHTML = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating PDF...';
+    }
+
+    printSection.style.display = 'block';
+
+    var opt = {
+        margin:       [8, 8, 8, 8],
+        filename:     'Member_Ledger_<?php echo preg_replace('/[^A-Za-z0-9_-]/', '_', $member['name']); ?>.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(printSection).save().then(function() {
+        printSection.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    }).catch(function(err) {
+        console.error('PDF error:', err);
+        printSection.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    });
+}
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

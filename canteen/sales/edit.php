@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $quantities   = $_POST['quantity']      ?? [];
     $unitPrices   = $_POST['unit_price']    ?? [];
 
-    $allowedMethods = ['cash','card','online','easypaisa','jazzcash'];
+    $allowedMethods = ['cash','card','online'];
     if (!$saleDate || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $saleDate)) $errors[] = 'Valid sale date is required.';
     if (!in_array($paymentMethod, $allowedMethods))                      $errors[] = 'Invalid payment method.';
     if (empty($productIds))                                              $errors[] = 'At least one item is required.';
@@ -173,11 +173,9 @@ $stmt->execute([$id]);
 $items = $stmt->fetchAll();
 
 $methodMeta = [
-    'cash'      => 'Cash',
-    'card'      => 'Card',
-    'online'    => 'Online',
-    'easypaisa' => 'EasyPaisa',
-    'jazzcash'  => 'JazzCash',
+    'cash'   => 'Cash',
+    'card'   => 'Card',
+    'online' => 'Online',
 ];
 
 // Build product map for JS (id => {name, sale_price, unit})

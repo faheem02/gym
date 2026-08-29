@@ -1,49 +1,63 @@
 <?php
-require __DIR__ . '/../config.php';
+require __DIR__ . '/../../config.php';
 
 $id = (int)($_GET['id'] ?? 0);
-if ($id <= 0) {
+$rid = trim($_GET['rid'] ?? '');
+
+if ($id > 0) {
+    $stmt = $pdo->prepare("
+        SELECT s.*, m.name AS member_name, m.phone AS member_phone
+        FROM canteen_sales s
+        LEFT JOIN members m ON m.id = s.member_id
+        WHERE s.id = ?
+    ");
+    $stmt->execute([$id]);
+} elseif ($rid !== '') {
+    $stmt = $pdo->prepare("
+        SELECT s.*, m.name AS member_name, m.phone AS member_phone
+        FROM canteen_sales s
+        LEFT JOIN members m ON m.id = s.member_id
+        WHERE s.receipt_no = ?
+    ");
+    $stmt->execute([$rid]);
+} else {
     http_response_code(400);
-    exit('Invalid pass ID.');
+    exit('Invalid sale reference.');
 }
 
-$stmt = $pdo->prepare(
-    "SELECT dp.*, m.name AS member_name, m.phone AS member_phone
-     FROM day_passes dp
-     LEFT JOIN members m ON m.id = dp.member_id
-     WHERE dp.id = ?"
-);
-$stmt->execute([$id]);
-$pass = $stmt->fetch();
-
-if (!$pass) {
+$sale = $stmt->fetch();
+if (!$sale) {
     http_response_code(404);
-    exit('Day pass not found.');
+    exit('Sale record not found.');
 }
 
-$duration = '';
-if ($pass['check_out_time']) {
-    $mins = (strtotime($pass['check_out_time']) - strtotime($pass['check_in_time'])) / 60;
-    $hrs = floor($mins / 60);
-    $mins = $mins % 60;
-    $duration = ($hrs > 0 ? $hrs . 'h ' : '') . $mins . 'm';
-}
+$stmt = $pdo->prepare("
+    SELECT si.*, cp.name AS product_name, cp.unit
+    FROM canteen_sale_items si
+    LEFT JOIN canteen_products cp ON cp.id = si.product_id
+    WHERE si.sale_id = ?
+");
+$stmt->execute([$sale['id']]);
+$items = $stmt->fetchAll();
 
-$typeLabels = [
-    'gym' => 'Gym Access',
-    'kids_play' => 'Kids Play Area',
-    'both' => 'Gym + Kids Play',
+$methodLabels = [
+    'cash'   => 'Cash',
+    'card'   => 'Card',
+    'online' => 'Online',
 ];
-$typeLabel = $typeLabels[$pass['pass_type']] ?? ucfirst($pass['pass_type']);
+$paymentLabel = $methodLabels[$sale['payment_method']] ?? ucfirst($sale['payment_method']);
+$receivedAmount = (float)$sale['received_amount'];
+$finalAmount = (float)$sale['final_amount'];
+$change = max(0, $receivedAmount - $finalAmount);
+$remainingBalance = max(0, $finalAmount - $receivedAmount);
 $autoprint = !empty($_GET['autoprint']);
-$passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Day Pass <?php echo htmlspecialchars($passNo); ?> - <?php echo htmlspecialchars(GYM_NAME); ?></title>
+    <title>Receipt <?php echo htmlspecialchars($sale['receipt_no']); ?> - <?php echo htmlspecialchars(GYM_NAME); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -69,7 +83,7 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
             margin: 0 auto;
         }
 
-        /* Actions Bar */
+        /* ── Actions Bar ── */
         .actions-bar {
             display: flex;
             justify-content: center;
@@ -95,12 +109,12 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
         .btn-act-print:hover { background: #000; }
         .btn-act-pdf { background: #0284c7; color: #fff; }
         .btn-act-pdf:hover { background: #0369a1; }
-        .btn-act-new { background: #f59e0b; color: #fff; }
-        .btn-act-new:hover { background: #d97706; }
+        .btn-act-pos { background: #059669; color: #fff; }
+        .btn-act-pos:hover { background: #047857; }
         .btn-act-back { background: #fff; color: #374151; border-color: #d1d5db; }
         .btn-act-back:hover { background: #f3f4f6; }
 
-        /* Thermal Receipt Card */
+        /* ── Thermal Receipt Card ── */
         .thermal-receipt {
             width: var(--receipt-width);
             max-width: 100%;
@@ -174,26 +188,38 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
             margin: 8px 0;
         }
 
-        .pass-details-table {
+        /* ── Items Table ── */
+        .items-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 11px;
             margin: 6px 0;
         }
-        .pass-details-table td {
+        .items-table th {
+            text-align: left;
+            padding: 4px 0;
+            border-bottom: 1px dashed #000;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 10px;
+        }
+        .items-table th.th-qty { text-align: center; width: 35px; }
+        .items-table th.th-price { text-align: right; width: 55px; }
+        .items-table th.th-total { text-align: right; width: 60px; }
+
+        .items-table td {
             padding: 4px 0;
             vertical-align: top;
         }
-        .pass-details-table td.lbl {
+        .items-table td.td-qty { text-align: center; }
+        .items-table td.td-price { text-align: right; }
+        .items-table td.td-total { text-align: right; font-weight: 700; }
+        .items-table .item-name {
             font-weight: 600;
-            width: 42%;
-        }
-        .pass-details-table td.val {
-            text-align: right;
-            font-weight: 500;
+            word-break: break-word;
         }
 
-        /* Totals */
+        /* ── Totals ── */
         .totals-section {
             margin: 8px 0;
             font-size: 11.5px;
@@ -208,24 +234,14 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
             font-weight: 700;
             border-top: 1px dashed #000;
             border-bottom: 1px dashed #000;
-            padding: 5px 0;
+            padding: 4px 0;
             margin: 6px 0;
         }
 
-        .status-badge {
-            font-family: 'Inter', sans-serif;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 1px 6px;
-            border: 1px solid #000;
-            display: inline-block;
-        }
-
-        /* Footer */
+        /* ── Footer ── */
         .receipt-footer {
             text-align: center;
-            margin-top: 12px;
+            margin-top: 14px;
             font-size: 10.5px;
             line-height: 1.4;
         }
@@ -238,7 +254,7 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
             font-size: 12px;
         }
 
-        /* Print Media */
+        /* ── Print Media ── */
         @media print {
             body {
                 background: #fff;
@@ -278,11 +294,11 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
         <button type="button" class="btn-act btn-act-pdf" onclick="downloadThermalPDF();">
             <i class="fas fa-file-pdf"></i> Download PDF
         </button>
-        <a href="/gym/day_passes/add.php" class="btn-act btn-act-new">
-            <i class="fas fa-plus"></i> Issue Pass
+        <a href="/gym/canteen/pos/index.php" class="btn-act btn-act-pos">
+            <i class="fas fa-plus"></i> New Sale
         </a>
-        <a href="/gym/day_passes/index.php" class="btn-act btn-act-back">
-            <i class="fas fa-list"></i> Day Passes
+        <a href="/gym/canteen/sales/" class="btn-act btn-act-back">
+            <i class="fas fa-list"></i> All Sales
         </a>
     </div>
 
@@ -296,80 +312,96 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
             <div class="gym-name"><?php echo htmlspecialchars(GYM_NAME); ?></div>
             <div class="gym-info"><?php echo htmlspecialchars(GYM_PHONE); ?></div>
             <div class="gym-info"><?php echo htmlspecialchars(GYM_ADDRESS); ?></div>
-            <div class="receipt-title">DAY PASS RECEIPT</div>
+            <div class="receipt-title">POS RECEIPT</div>
         </div>
 
         <div class="receipt-meta">
             <div class="meta-row">
-                <span class="meta-label">Pass #:</span>
-                <span><?php echo htmlspecialchars($passNo); ?></span>
+                <span class="meta-label">Receipt #:</span>
+                <span><?php echo htmlspecialchars($sale['receipt_no'] ?? ('SALE-' . $sale['id'])); ?></span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">Date:</span>
-                <span><?php echo date('d-m-Y', strtotime($pass['pass_date'])); ?></span>
+                <span class="meta-label">Date/Time:</span>
+                <span><?php echo date('d-m-Y h:i A', strtotime($sale['created_at'] ?? $sale['sale_date'])); ?></span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">Check-in Time:</span>
-                <span><?php echo date('h:i A', strtotime($pass['check_in_time'])); ?></span>
+                <span class="meta-label">Customer:</span>
+                <span>
+                    <?php if (!empty($sale['member_id'])): ?>
+                        <?php echo htmlspecialchars($sale['member_name'] ?? 'Member #' . $sale['member_id']); ?> (Member)
+                    <?php else: ?>
+                        <?php echo htmlspecialchars($sale['customer_name'] ?? 'Walk-in Customer'); ?>
+                    <?php endif; ?>
+                </span>
             </div>
-            <?php if ($pass['check_out_time']): ?>
             <div class="meta-row">
-                <span class="meta-label">Check-out Time:</span>
-                <span><?php echo date('h:i A', strtotime($pass['check_out_time'])); ?> (<?php echo $duration; ?>)</span>
+                <span class="meta-label">Payment Mode:</span>
+                <span><?php echo htmlspecialchars($paymentLabel); ?></span>
             </div>
-            <?php endif; ?>
         </div>
 
-        <hr class="divider-dashed">
-
-        <table class="pass-details-table">
-            <tr>
-                <td class="lbl">Visitor Name:</td>
-                <td class="val" style="font-weight:700;"><?php echo htmlspecialchars($pass['visitor_name']); ?></td>
-            </tr>
-            <?php if (!empty($pass['phone'])): ?>
-            <tr>
-                <td class="lbl">Phone:</td>
-                <td class="val"><?php echo htmlspecialchars($pass['phone']); ?></td>
-            </tr>
-            <?php endif; ?>
-            <tr>
-                <td class="lbl">Pass Type:</td>
-                <td class="val" style="font-weight:700;"><?php echo htmlspecialchars($typeLabel); ?></td>
-            </tr>
-            <tr>
-                <td class="lbl">Visitor Type:</td>
-                <td class="val">
-                    <?php if (!empty($pass['member_name'])): ?>
-                        Guest of <?php echo htmlspecialchars($pass['member_name']); ?>
-                    <?php else: ?>
-                        Walk-in Visitor
-                    <?php endif; ?>
-                </td>
-            </tr>
-            <tr>
-                <td class="lbl">Status:</td>
-                <td class="val">
-                    <?php if ($pass['check_out_time']): ?>
-                        <span class="status-badge">Completed</span>
-                    <?php else: ?>
-                        <span class="status-badge">Active (Inside)</span>
-                    <?php endif; ?>
-                </td>
-            </tr>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th class="th-qty">Qty</th>
+                    <th class="th-price">Rate</th>
+                    <th class="th-total">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($items as $it): ?>
+                <tr>
+                    <td class="item-name"><?php echo htmlspecialchars($it['product_name'] ?? 'Item'); ?></td>
+                    <td class="td-qty"><?php echo $it['quantity']; ?></td>
+                    <td class="td-price"><?php echo number_format($it['unit_price'], 0); ?></td>
+                    <td class="td-total"><?php echo number_format($it['subtotal'], 0); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
         </table>
 
         <div class="totals-section">
-            <div class="totals-row grand-total">
-                <span>AMOUNT PAID:</span>
-                <span>Rs. <?php echo number_format($pass['amount'], 2); ?></span>
+            <div class="totals-row">
+                <span>Subtotal:</span>
+                <span>Rs. <?php echo number_format($sale['total_amount'], 2); ?></span>
             </div>
+            <?php if ((float)$sale['discount'] > 0): ?>
+            <div class="totals-row">
+                <span>Discount:</span>
+                <span>- Rs. <?php echo number_format($sale['discount'], 2); ?></span>
+            </div>
+            <?php endif; ?>
+            <div class="totals-row grand-total">
+                <span>NET TOTAL:</span>
+                <span>Rs. <?php echo number_format($finalAmount, 2); ?></span>
+            </div>
+            <div class="totals-row">
+                <span>Amount Paid:</span>
+                <span>Rs. <?php echo number_format($receivedAmount, 2); ?></span>
+            </div>
+            <?php if ($remainingBalance > 0): ?>
+            <div class="totals-row" style="font-weight:700; color:#b91c1c; border-top:1px dashed #000; padding-top:4px; margin-top:4px;">
+                <span>REMAINING BALANCE:</span>
+                <span>Rs. <?php echo number_format($remainingBalance, 2); ?></span>
+            </div>
+            <?php elseif ($change > 0): ?>
+            <div class="totals-row">
+                <span>Change Returned:</span>
+                <span>Rs. <?php echo number_format($change, 2); ?></span>
+            </div>
+            <?php else: ?>
+            <div class="totals-row" style="font-weight:600;">
+                <span>Remaining Balance:</span>
+                <span>Rs. 0.00 (Cleared)</span>
+            </div>
+            <?php endif; ?>
         </div>
 
-        <?php if (!empty($pass['notes'])): ?>
+        <?php if (!empty($sale['notes'])): ?>
         <hr class="divider-dashed">
-        <div style="font-size:10.5px; margin: 4px 0;">
-            <strong>Note:</strong> <?php echo htmlspecialchars($pass['notes']); ?>
+        <div style="font-size:10px; margin: 4px 0;">
+            <strong>Note:</strong> <?php echo htmlspecialchars($sale['notes']); ?>
         </div>
         <?php endif; ?>
 
@@ -379,7 +411,7 @@ $passNo = 'DP-' . str_pad($pass['id'], 5, '0', STR_PAD_LEFT);
                 It's provisional bill and above mentioned price is subject to GST
             </p>
             <p style="font-size:9.5px; margin-bottom:2px;">
-                Date: <strong><?php echo date('Y-m-d', strtotime($pass['created_at'] ?? $pass['pass_date'])); ?></strong> | Time: <strong><?php echo date('H:i:s', strtotime($pass['created_at'] ?? 'now')); ?></strong>
+                Date: <strong><?php echo date('Y-m-d', strtotime($sale['created_at'] ?? $sale['sale_date'])); ?></strong> | Time: <strong><?php echo date('H:i:s', strtotime($sale['created_at'] ?? 'now')); ?></strong>
             </p>
             <p style="font-size:9.5px; margin-bottom:4px;">
                 Cashier Name: <strong><?php echo htmlspecialchars($_SESSION['username'] ?? 'Admin'); ?></strong>
@@ -403,10 +435,10 @@ function downloadThermalPDF() {
     var element = document.getElementById('thermalReceiptArea');
     var opt = {
         margin:       [4, 2, 4, 2],
-        filename:     'DayPass_<?php echo htmlspecialchars($passNo); ?>.pdf',
+        filename:     'Receipt_<?php echo htmlspecialchars($sale['receipt_no'] ?? $sale['id']); ?>.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2.5, useCORS: true, letterRendering: true },
-        jsPDF:        { unit: 'mm', format: [80, 180], orientation: 'portrait' }
+        jsPDF:        { unit: 'mm', format: [80, 200], orientation: 'portrait' }
     };
     html2pdf().set(opt).from(element).save();
 }

@@ -155,11 +155,14 @@ foreach ($stmt->fetchAll() as $r) $paidMap[$r['staff_id']] = (float)$r['paid'];
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <h6 class="fw-bold mb-0"><i class="fas fa-file-invoice-dollar text-primary me-2"></i>Salary Status &mdash; <?php echo date('F Y', strtotime($month . '-01')); ?></h6>
             <div class="d-flex gap-2 align-items-center flex-wrap">
-                <form method="GET" action="" class="d-flex gap-1 align-items-center">
-                    <input type="month" name="month" class="form-control form-control-sm" value="<?php echo htmlspecialchars($month); ?>">
-                    <button class="btn btn-dark btn-sm"><i class="fas fa-filter me-1"></i>Filter</button>
+                <form method="GET" action="" class="d-flex gap-2 align-items-center">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-calendar-alt text-muted"></i></span>
+                        <input type="month" name="month" class="form-control" value="<?php echo htmlspecialchars($month); ?>" style="max-width: 170px;">
+                        <button type="submit" class="btn btn-dark fw-semibold px-3"><i class="fas fa-filter me-1"></i>Filter</button>
+                    </div>
                 </form>
-                <button type="button" class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#paySalaryModal" onclick="openPayModal()"><i class="fas fa-plus me-1"></i>Pay Salary</button>
+                <button type="button" class="btn btn-success fw-bold px-3" data-bs-toggle="modal" data-bs-target="#paySalaryModal" onclick="openPayModal()"><i class="fas fa-plus me-1"></i>Pay Salary</button>
             </div>
         </div>
         <div class="table-responsive">
@@ -200,18 +203,23 @@ foreach ($stmt->fetchAll() as $r) $paidMap[$r['staff_id']] = (float)$r['paid'];
         </div>
         <form method="GET" action="" class="row g-2 align-items-end mb-3">
             <input type="hidden" name="month" value="<?php echo htmlspecialchars($month); ?>">
-            <div class="col-md">
-                <input type="text" name="hq" class="form-control form-control-sm" placeholder="Search staff, role, notes..." value="<?php echo htmlspecialchars($hSearch); ?>">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold mb-1">Search Staff / Notes</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" name="hq" class="form-control form-control-sm" placeholder="Search staff, role, notes..." value="<?php echo htmlspecialchars($hSearch); ?>">
+                </div>
             </div>
-            <div class="col-auto">
-                <input type="date" name="h_from" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hDateFrom); ?>" title="From date">
+            <div class="col-md-2">
+                <label class="form-label small fw-bold mb-1">From Date</label>
+                <input type="date" name="h_from" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hDateFrom); ?>">
             </div>
-            <div class="col-auto"><span class="text-muted small">to</span></div>
-            <div class="col-auto">
-                <input type="date" name="h_to" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hDateTo); ?>" title="To date">
+            <div class="col-md-2">
+                <label class="form-label small fw-bold mb-1">To Date</label>
+                <input type="date" name="h_to" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hDateTo); ?>">
             </div>
-            <div class="col-auto">
-                <button class="btn btn-dark btn-sm"><i class="fas fa-filter me-1"></i>Filter</button>
+            <div class="col-md-3 d-flex gap-1">
+                <button type="submit" class="btn btn-warning btn-sm flex-fill fw-bold px-3" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-filter me-1"></i>Filter</button>
                 <?php if ($hSearch !== '' || $hDateFrom !== '' || $hDateTo !== ''): ?>
                     <a href="salaries.php?month=<?php echo urlencode($month); ?>" class="btn btn-outline-secondary btn-sm" title="Clear"><i class="fas fa-times"></i></a>
                 <?php endif; ?>
@@ -274,16 +282,15 @@ foreach ($stmt->fetchAll() as $r) $paidMap[$r['staff_id']] = (float)$r['paid'];
                         <input type="radio" class="btn-check" name="payment_type" value="advance" id="ptAdvance" onchange="updatePayType()">
                         <label class="btn btn-outline-warning" for="ptAdvance"><i class="fas fa-hand-holding-usd me-1"></i>Advance</label>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Staff *</label>
-                        <select name="staff_id" id="staffSelect" class="form-select" required onchange="fillSalary()">
-                            <option value="">-- Select Staff --</option>
-                            <?php foreach ($staff as $s): ?>
-                                <option value="<?php echo $s['id']; ?>" data-salary="<?php echo $s['salary']; ?>" data-role="<?php echo ucfirst(htmlspecialchars($s['role'])); ?>">
-                                    <?php echo htmlspecialchars($s['name']); ?> (<?php echo ucfirst($s['role']); ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="mb-3 position-relative">
+                        <label class="form-label fw-semibold">Search Staff Member *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-id-badge text-muted"></i></span>
+                            <input type="text" id="payStaffSearch" class="form-control" placeholder="Type staff name or role..." autocomplete="off" spellcheck="false" required>
+                            <button type="button" class="btn btn-outline-secondary" id="clearPayStaff" style="display:none;"><i class="fas fa-times"></i></button>
+                        </div>
+                        <input type="hidden" name="staff_id" id="staffSelect" value="" required>
+                        <div id="payStaffResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1060; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -324,14 +331,86 @@ foreach ($stmt->fetchAll() as $r) $paidMap[$r['staff_id']] = (float)$r['paid'];
 </div>
 
 <script>
-function fillSalary() {
-    var sel = document.getElementById('staffSelect');
-    var opt = sel.options[sel.selectedIndex];
-    var amount = document.getElementById('amountInput');
-    if (opt && opt.getAttribute('data-salary')) {
-        amount.value = parseFloat(opt.getAttribute('data-salary'));
+var staffData = <?php echo json_encode($staff); ?>;
+var staffSearchInput = document.getElementById('payStaffSearch');
+var staffHiddenInput = document.getElementById('staffSelect');
+var staffResultsBox = document.getElementById('payStaffResults');
+var clearStaffBtn = document.getElementById('clearPayStaff');
+
+function renderStaffList(query) {
+    var q = (query || '').trim().toLowerCase();
+    staffResultsBox.innerHTML = '';
+
+    if (q.length < 1) {
+        staffResultsBox.style.display = 'none';
+        return;
     }
+
+    var filtered = staffData.filter(function(s) {
+        return s.name.toLowerCase().includes(q) || (s.role && s.role.toLowerCase().includes(q));
+    });
+
+    if (filtered.length === 0) {
+        staffResultsBox.innerHTML = '<div class="list-group-item text-muted py-2 text-center small"><i class="fas fa-user-slash me-1"></i>No staff found</div>';
+        staffResultsBox.style.display = 'block';
+        return;
+    }
+
+    filtered.forEach(function(s) {
+        var a = document.createElement('a');
+        a.href = '#';
+        a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 small';
+        a.innerHTML = '<div><strong>' + escapeHtml(s.name) + '</strong> <small class="text-muted">(' + escapeHtml(s.role) + ')</small></div><span class="badge bg-light text-dark border">Salary: Rs.' + Number(s.salary).toLocaleString() + '</span>';
+        
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            staffSearchInput.value = s.name + ' (' + s.role + ')';
+            staffHiddenInput.value = s.id;
+            document.getElementById('amountInput').value = parseFloat(s.salary) || '';
+            staffResultsBox.style.display = 'none';
+            clearStaffBtn.style.display = 'inline-block';
+        });
+        staffResultsBox.appendChild(a);
+    });
+
+    staffResultsBox.style.display = 'block';
 }
+
+function escapeHtml(text) {
+    var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+staffSearchInput.addEventListener('focus', function() {
+    if (this.value.trim().length >= 1) {
+        renderStaffList(this.value);
+    }
+});
+
+staffSearchInput.addEventListener('input', function() {
+    staffHiddenInput.value = '';
+    if (this.value.trim().length > 0) {
+        clearStaffBtn.style.display = 'inline-block';
+    } else {
+        clearStaffBtn.style.display = 'none';
+    }
+    renderStaffList(this.value);
+});
+
+clearStaffBtn.addEventListener('click', function() {
+    staffSearchInput.value = '';
+    staffHiddenInput.value = '';
+    clearStaffBtn.style.display = 'none';
+    staffResultsBox.style.display = 'none';
+    staffResultsBox.innerHTML = '';
+    staffSearchInput.focus();
+});
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#payStaffSearch') && !e.target.closest('#payStaffResults')) {
+        staffResultsBox.style.display = 'none';
+    }
+});
 
 function updatePayType() {
     var isAdvance = document.getElementById('ptAdvance').checked;
@@ -342,6 +421,9 @@ function updatePayType() {
 
 function openPayModal() {
     document.getElementById('paySalaryForm').reset();
+    staffSearchInput.value = '';
+    staffHiddenInput.value = '';
+    clearStaffBtn.style.display = 'none';
     document.getElementById('amountInput').value = '';
     document.getElementById('formAction').value = 'pay_salary';
     document.getElementById('editPaymentId').value = '';
@@ -355,7 +437,12 @@ function editPayment(id, staffId, type, month, amount, date, method, notes) {
     document.getElementById('editPaymentId').value = id;
     document.getElementById('payModalTitle').textContent = 'Edit Payment';
     document.getElementById('payBtnText').textContent = 'Update Payment';
-    document.getElementById('staffSelect').value = staffId;
+    staffHiddenInput.value = staffId;
+    var found = staffData.find(function(s) { return s.id == staffId; });
+    if (found) {
+        staffSearchInput.value = found.name + ' (' + found.role + ')';
+        clearStaffBtn.style.display = 'inline-block';
+    }
     if (type === 'advance') {
         document.getElementById('ptAdvance').checked = true;
     } else {

@@ -63,17 +63,23 @@ try {
 
 // prev period staff salaries
 
-// 3. Canteen Purchases (cost of goods)
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(total_amount),0) AS total FROM canteen_purchases WHERE purchase_date BETWEEN ? AND ?");
+// 3. Cost of Goods Sold (purchase rate of products actually sold)
+$stmt = $pdo->prepare("
+    SELECT COALESCE(SUM(csi.quantity * cp.purchase_price),0) AS total
+    FROM canteen_sale_items csi
+    JOIN canteen_products cp ON cp.id = csi.product_id
+    JOIN canteen_sales cs ON cs.id = csi.sale_id
+    WHERE cs.sale_date BETWEEN ? AND ?
+");
 $stmt->execute([$dateFrom, $dateTo]);
-$canteenPurchases = (float)$stmt->fetchColumn();
+$cogs = (float)$stmt->fetchColumn();
 
-$totalExpenses = $totalGeneralExpenses + $staffSalaries + $canteenPurchases;
+$totalExpenses = $totalGeneralExpenses + $staffSalaries + $cogs;
 
 // -------------------------------------------------------
-// GROSS PROFIT on Canteen (Sales - Purchases)
+// GROSS PROFIT on Canteen (Sales - COGS)
 // -------------------------------------------------------
-$canteenGrossProfit = $canteenSales - $canteenPurchases;
+$canteenGrossProfit = $canteenSales - $cogs;
 
 // -------------------------------------------------------
 // NET PROFIT / LOSS
@@ -113,11 +119,17 @@ try {
     $prevSalaries = 0;
 }
 
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(total_amount),0) FROM canteen_purchases WHERE purchase_date BETWEEN ? AND ?");
+$stmt = $pdo->prepare("
+    SELECT COALESCE(SUM(csi.quantity * cp.purchase_price),0) AS total
+    FROM canteen_sale_items csi
+    JOIN canteen_products cp ON cp.id = csi.product_id
+    JOIN canteen_sales cs ON cs.id = csi.sale_id
+    WHERE cs.sale_date BETWEEN ? AND ?
+");
 $stmt->execute([$prevFrom, $prevTo]);
-$prevPurchases = (float)$stmt->fetchColumn();
+$prevCogs = (float)$stmt->fetchColumn();
 
-$prevTotalExpenses = $prevExpenses + $prevSalaries + $prevPurchases;
+$prevTotalExpenses = $prevExpenses + $prevSalaries + $prevCogs;
 $prevNetProfit = $prevTotalIncome - $prevTotalExpenses;
 
 function pctChange($current, $previous) {
@@ -141,13 +153,16 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
                 <label class="form-label small fw-semibold mb-1">To</label>
                 <input type="date" name="date_to" class="form-control form-control-sm" value="<?php echo htmlspecialchars($dateTo); ?>">
             </div>
-            <div class="col-auto d-flex gap-1">
-                <button type="submit" class="btn btn-sm fw-bold" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;">
+            <div class="col-auto d-flex flex-wrap align-items-center gap-1">
+                <button type="submit" class="btn btn-dark btn-sm fw-semibold">
                     <i class="fas fa-filter me-1"></i>Apply
                 </button>
-                <a href="profit_loss.php" class="btn btn-outline-secondary btn-sm">
+                <a href="profit_loss.php" class="btn btn-outline-secondary btn-sm" title="Reset filters">
                     <i class="fas fa-times"></i>
                 </a>
+                <button type="button" onclick="downloadProfitLossPDF();" class="btn btn-primary btn-sm fw-bold">
+                    <i class="fas fa-file-pdf me-1"></i>Download PDF
+                </button>
                 <button type="button" onclick="window.print();" class="btn btn-danger btn-sm fw-bold">
                     <i class="fas fa-print me-1"></i>Print
                 </button>
@@ -178,7 +193,7 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
 <!-- Summary Stat Cards -->
 <div class="row g-3 mb-4" id="printArea">
 
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-lg">
         <div class="card stat-card h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="stat-icon bg-success"><i class="fas fa-arrow-up"></i></div>
@@ -196,7 +211,7 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
         </div>
     </div>
 
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-lg">
         <div class="card stat-card h-100">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="stat-icon bg-danger"><i class="fas fa-arrow-down"></i></div>
@@ -214,24 +229,7 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
         </div>
     </div>
 
-    <div class="col-6 col-lg-3">
-        <div class="card stat-card h-100">
-            <div class="card-body d-flex align-items-center gap-3">
-                <div class="stat-icon" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;">
-                    <i class="fas fa-shopping-basket"></i>
-                </div>
-                <div>
-                    <h5 class="mb-0 fw-bold <?php echo $canteenGrossProfit >= 0 ? 'text-success' : 'text-danger'; ?>">
-                        Rs.<?php echo number_format($canteenGrossProfit, 0); ?>
-                    </h5>
-                    <small class="text-muted">Canteen Gross Profit</small>
-                    <div class="small text-muted">Sales − Purchases</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-lg">
         <div class="card stat-card h-100" style="<?php echo $netProfit >= 0 ? 'border-left:4px solid #28a745;' : 'border-left:4px solid #dc3545;'; ?>">
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="stat-icon" style="background:linear-gradient(135deg,<?php echo $netProfit >= 0 ? '#28a745,#20c997' : '#dc3545,#c82333'; ?>);color:#fff;">
@@ -248,6 +246,23 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
                             <?php echo abs($profitPct); ?>% vs prev period
                         </div>
                     <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;">
+                    <i class="fas fa-shopping-basket"></i>
+                </div>
+                <div>
+                    <h5 class="mb-0 fw-bold <?php echo $canteenGrossProfit >= 0 ? 'text-success' : 'text-danger'; ?>">
+                        Rs.<?php echo number_format($canteenGrossProfit, 0); ?>
+                    </h5>
+                    <small class="text-muted">Canteen Gross Profit</small>
+                    <div class="small text-muted">Sales − COGS</div>
                 </div>
             </div>
         </div>
@@ -334,11 +349,11 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
                                 <span class="badge bg-danger bg-opacity-10 text-danger"><?php echo $salPct; ?>%</span>
                             </td>
                         </tr>
-                        <!-- Canteen Purchases -->
-                        <?php $purPct = $totalExpenses > 0 ? round($canteenPurchases / $totalExpenses * 100, 1) : 0; ?>
+                        <!-- Cost of Goods Sold -->
+                        <?php $purPct = $totalExpenses > 0 ? round($cogs / $totalExpenses * 100, 1) : 0; ?>
                         <tr>
-                            <td><i class="fas fa-shopping-cart text-warning me-2"></i>Canteen Purchases</td>
-                            <td class="text-end fw-semibold"><?php echo number_format($canteenPurchases, 2); ?></td>
+                            <td><i class="fas fa-shopping-cart text-warning me-2"></i>Cost of Goods Sold</td>
+                            <td class="text-end fw-semibold"><?php echo number_format($cogs, 2); ?></td>
                             <td class="text-end">
                                 <span class="badge bg-danger bg-opacity-10 text-danger"><?php echo $purPct; ?>%</span>
                             </td>
@@ -355,7 +370,7 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
                             </td>
                         </tr>
                         <?php endforeach; ?>
-                        <?php if (empty($expensesByCategory) && $staffSalaries == 0 && $canteenPurchases == 0): ?>
+<?php if (empty($expensesByCategory) && $staffSalaries == 0 && $cogs == 0): ?>
                         <tr><td colspan="3" class="text-center text-muted py-3">No expenses recorded for this period.</td></tr>
                         <?php endif; ?>
                     </tbody>
@@ -479,9 +494,9 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
                 <td class="text-right"><?php echo $totalExpenses > 0 ? round($staffSalaries / $totalExpenses * 100, 1) : 0; ?>%</td>
             </tr>
             <tr>
-                <td>Canteen Purchases</td>
-                <td class="text-right"><?php echo number_format($canteenPurchases, 2); ?></td>
-                <td class="text-right"><?php echo $totalExpenses > 0 ? round($canteenPurchases / $totalExpenses * 100, 1) : 0; ?>%</td>
+                <td>Cost of Goods Sold</td>
+                <td class="text-right"><?php echo number_format($cogs, 2); ?></td>
+                <td class="text-right"><?php echo $totalExpenses > 0 ? round($cogs / $totalExpenses * 100, 1) : 0; ?>%</td>
             </tr>
             <?php foreach ($expensesByCategory as $cat): ?>
             <tr>
@@ -490,7 +505,7 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
                 <td class="text-right"><?php echo $totalExpenses > 0 ? round($cat['total'] / $totalExpenses * 100, 1) : 0; ?>%</td>
             </tr>
             <?php endforeach; ?>
-            <?php if (empty($expensesByCategory) && $staffSalaries == 0 && $canteenPurchases == 0): ?>
+            <?php if (empty($expensesByCategory) && $staffSalaries == 0 && $cogs == 0): ?>
             <tr><td colspan="3" style="text-align:center;padding:14px;color:#666;">No expenses recorded for this period.</td></tr>
             <?php endif; ?>
         </tbody>
@@ -519,67 +534,226 @@ $profitPct  = pctChange($netProfit, $prevNetProfit);
 
 <style>
 /* ── Screen: hide print section ── */
-#printSection { display: none; }
+#printSection {
+    display: none;
+    background: #ffffff;
+    color: #111111;
+    font-family: Arial, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-/* ── Print styles ── */
+/* ── Print & PDF Styles ── */
+#printSection .print-header {
+    text-align: center;
+    border-bottom: 2px solid #1a1a2e;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+#printSection .print-logo { margin-bottom: 6px; }
+#printSection .print-logo img {
+    height: 55px;
+    width: auto;
+    display: inline-block;
+    object-fit: contain;
+    filter: brightness(0);
+    -webkit-filter: brightness(0);
+}
+#printSection .print-gym-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #1a1a2e;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+#printSection .print-gym-contact { font-size: 11px; color: #333333; margin-top: 3px; }
+#printSection .print-gym-address { font-size: 10.5px; color: #555555; margin-top: 2px; }
+#printSection .print-gym-sub {
+    font-size: 12.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #1a1a2e;
+    font-weight: 700;
+    margin-top: 8px;
+    padding: 3px 0;
+    border-top: 1px dashed #cccccc;
+    border-bottom: 1px dashed #cccccc;
+}
+#printSection .print-gym-meta { font-size: 11px; color: #333333; margin-top: 5px; }
+
+/* ── Summary boxes ── */
+#printSection .print-summary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+#printSection .print-summary-box {
+    flex: 1;
+    text-align: center;
+    padding: 10px 8px;
+    border: 1px solid #1a1a2e;
+    border-radius: 4px;
+    background: #fdfdfd;
+}
+#printSection .print-summary-box.highlight {
+    background: #1a1a2e !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-summary-val { font-size: 14px; font-weight: 700; }
+#printSection .print-summary-lbl {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666666;
+    margin-top: 3px;
+}
+#printSection .print-summary-box.highlight .print-summary-lbl { color: #dddddd !important; }
+
+/* ── Section titles ── */
+#printSection .print-section-title {
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    margin: 14px 0 8px;
+    border-left: 4px solid #999999;
+    background: #f3f4f6;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-section-title.income { border-left-color: #28a745; }
+#printSection .print-section-title.expense { border-left-color: #dc3545; }
+
+/* ── Table ── */
+#printSection .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-bottom: 16px;
+}
+#printSection .print-table thead tr {
+    background: #1a1a2e !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table thead th {
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+    border: 1px solid #1a1a2e;
+    color: #ffffff;
+}
+#printSection .print-table tbody tr td {
+    padding: 7px 10px;
+    border: 1px solid #e0e0e0;
+    vertical-align: middle;
+}
+#printSection .print-table tbody tr.even td {
+    background: #f9fafb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table tfoot tr td {
+    padding: 8px 10px;
+    background: #f3f4f6 !important;
+    font-weight: 700;
+    border: 1px solid #d1d5db;
+    border-top: 2px solid #1a1a2e;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table .text-right { text-align: right; }
+#printSection .print-table .bold { font-weight: 700; }
+
+/* ── Net result banner ── */
+#printSection .print-net {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 2px solid #28a745;
+    padding: 10px 14px;
+    margin-top: 18px;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-net.neg { border-color: #dc3545; color: #dc3545; }
+#printSection .print-net.pos { border-color: #28a745; color: #28a745; }
+#printSection .print-net .amt { font-size: 16px; }
+#printSection .print-net .margin { font-size: 9.5px; font-weight: 400; color: #555; letter-spacing: 0; }
+
+/* ── Footer ── */
+#printSection .print-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    color: #666666;
+    margin-top: 16px;
+    border-top: 1px solid #cccccc;
+    padding-top: 8px;
+}
+
+/* ── Print Media ── */
 @media print {
-    /* Hide all screen UI */
     .sidebar, .sidebar-overlay, .topbar, .hamburger,
     .search-bar, .no-print, .alert,
     form, .row.g-3.mb-4, .card, script { display: none !important; }
 
-    body        { background:#fff !important; margin:0; padding:0; font-family: Arial, sans-serif; color:#000; }
-    .layout-wrapper { display:block !important; }
-    .main-content   { margin:0 !important; width:100% !important; min-height:unset; }
-    .content        { padding:0 !important; }
+    body { background: #fff !important; margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }
+    .layout-wrapper { display: block !important; }
+    .main-content { margin: 0 !important; width: 100% !important; min-height: unset; }
+    .content { padding: 0 !important; }
 
-    /* Show print section */
-    #printSection { display:block !important; padding: 18px 24px; }
-
-    /* ── Letterhead ── */
-    .print-header        { text-align:center; border-bottom:3px solid #1a1a2e; padding-bottom:10px; margin-bottom:14px; }
-    .print-logo          { font-size:28px; color:#f7b731; margin-bottom:2px; }
-    .print-gym-name      { font-size:20px; font-weight:900; letter-spacing:3px; color:#1a1a2e; }
-    .print-gym-sub       { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#555; margin-top:2px; }
-    .print-gym-meta      { font-size:10px; color:#444; margin-top:6px; }
-
-    /* ── Summary boxes ── */
-    .print-summary       { display:flex; gap:0; border:1px solid #1a1a2e; margin-bottom:16px; }
-    .print-summary-box   { flex:1; text-align:center; padding:8px 4px; border-right:1px solid #1a1a2e; }
-    .print-summary-box:last-child { border-right:none; }
-    .print-summary-box.highlight  { background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-summary-val   { font-size:13px; font-weight:700; }
-    .print-summary-lbl   { font-size:8.5px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-top:2px; }
-    .print-summary-box.highlight .print-summary-lbl { color:#ccc; }
-
-    /* ── Section titles ── */
-    .print-section-title     { font-size:12px; font-weight:900; letter-spacing:1px; text-transform:uppercase; padding:5px 10px; margin:14px 0 6px; border-left:4px solid #999; background:#f2f2f2; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-section-title i   { font-style:normal; margin-right:4px; }
-    .print-section-title.income   { border-left-color:#28a745; }
-    .print-section-title.expense  { border-left-color:#dc3545; }
-
-    /* ── Table ── */
-    .print-table         { width:100%; border-collapse:collapse; font-size:11px; }
-    .print-table thead tr{ background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table thead th{ padding:7px 8px; text-align:left; font-weight:700; font-size:10px; letter-spacing:0.5px; }
-    .print-table tbody tr td { padding:6px 8px; border-bottom:1px solid #e0e0e0; vertical-align:middle; }
-    .print-table tfoot tr td { padding:7px 8px; background:#f0f0f0; font-weight:700; border-top:2px solid #1a1a2e; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table .text-right { text-align:right; }
-    .print-table .bold       { font-weight:700; }
-
-    /* ── Net result banner ── */
-    .print-net           { display:flex; align-items:center; gap:10px; border:2px solid #28a745; padding:10px 14px; margin-top:18px; font-size:13px; font-weight:900; letter-spacing:1px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-net.neg       { border-color:#dc3545; color:#dc3545; }
-    .print-net.pos       { border-color:#28a745; color:#28a745; }
-    .print-net .amt      { font-size:16px; }
-    .print-net .margin   { font-size:9.5px; font-weight:400; color:#555; letter-spacing:0; }
-
-    /* ── Footer ── */
-    .print-footer { display:flex; justify-content:space-between; font-size:9px; color:#666; margin-top:14px; border-top:1px solid #ccc; padding-top:6px; }
-
-    /* Page setup */
+    #printSection { display: block !important; padding: 18px 24px; }
     @page { margin: 12mm 10mm; size: A4 portrait; }
 }
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+function downloadProfitLossPDF() {
+    var printSection = document.getElementById('printSection');
+    if (!printSection) return;
+
+    var btn = event && event.target ? event.target.closest('button') : null;
+    var originalHTML = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating PDF...';
+    }
+
+    printSection.style.display = 'block';
+
+    var opt = {
+        margin:       [8, 8, 8, 8],
+        filename:     'Profit_Loss_Statement_<?php echo $dateFrom; ?>_to_<?php echo $dateTo; ?>.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(printSection).save().then(function() {
+        printSection.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    }).catch(function(err) {
+        console.error('PDF error:', err);
+        printSection.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    });
+}
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

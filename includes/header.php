@@ -86,16 +86,21 @@ $activePage = $activePage ?? '';
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo in_array($activePage, ['staff','staff_salaries','staff_ledger']) ? 'active' : ''; ?> sidebar-dropdown-toggle" href="#staffMenu" data-bs-toggle="collapse" role="button" aria-expanded="<?php echo in_array($activePage, ['staff','staff_salaries','staff_ledger']) ? 'true' : 'false'; ?>">
+                    <a class="nav-link <?php echo in_array($activePage, ['staff','staff_attendance','staff_salaries','staff_ledger']) ? 'active' : ''; ?> sidebar-dropdown-toggle" href="#staffMenu" data-bs-toggle="collapse" role="button" aria-expanded="<?php echo in_array($activePage, ['staff','staff_attendance','staff_salaries','staff_ledger']) ? 'true' : 'false'; ?>">
                         <i class="fas fa-id-badge"></i>
                         <span>Staff</span>
                         <i class="fas fa-chevron-down ms-auto small"></i>
                     </a>
-                    <div class="collapse <?php echo in_array($activePage, ['staff','staff_salaries','staff_ledger']) ? 'show' : ''; ?>" id="staffMenu">
+                    <div class="collapse <?php echo in_array($activePage, ['staff','staff_attendance','staff_salaries','staff_ledger']) ? 'show' : ''; ?>" id="staffMenu">
                         <ul class="nav flex-column ms-3">
                             <li class="nav-item">
                                 <a class="nav-link <?php echo $activePage === 'staff' ? 'active' : ''; ?>" href="/gym/staff/">
                                     <i class="fas fa-users me-1"></i><span>All Staff</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo $activePage === 'staff_attendance' ? 'active' : ''; ?>" href="/gym/staff/attendance.php">
+                                    <i class="fas fa-calendar-check me-1"></i><span>Attendance</span>
                                 </a>
                             </li>
                             <li class="nav-item">

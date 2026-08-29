@@ -168,7 +168,10 @@ foreach ($transactions as $t) {
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <h6 class="fw-bold mb-0"><i class="fas fa-money-bill-wave me-2" style="color:#f7b731;"></i>Cash Book — All Cash Transactions</h6>
-            <button onclick="window.print();" class="btn btn-danger fw-bold btn-sm"><i class="fas fa-print me-1"></i>Print</button>
+            <div class="d-flex gap-2">
+                <button type="button" onclick="downloadCashbookPDF();" class="btn btn-primary fw-bold btn-sm"><i class="fas fa-file-pdf me-1"></i>Download PDF</button>
+                <button onclick="window.print();" class="btn btn-danger fw-bold btn-sm"><i class="fas fa-print me-1"></i>Print</button>
+            </div>
         </div>
 
         <form class="row g-2 mb-3" method="GET">
@@ -327,56 +330,192 @@ foreach ($transactions as $t) {
 
 <style>
 /* ── Screen: hide print section ── */
-#printSection { display: none; }
+#printSection {
+    display: none;
+    background: #ffffff;
+    color: #111111;
+    font-family: Arial, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-/* ── Print styles ── */
+/* ── Print & PDF Styles ── */
+#printSection .print-header {
+    text-align: center;
+    border-bottom: 2px solid #1a1a2e;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+#printSection .print-logo { margin-bottom: 6px; }
+#printSection .print-logo img {
+    height: 55px;
+    width: auto;
+    display: inline-block;
+    object-fit: contain;
+    filter: brightness(0);
+    -webkit-filter: brightness(0);
+}
+#printSection .print-gym-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #1a1a2e;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+#printSection .print-gym-contact { font-size: 11px; color: #333333; margin-top: 3px; }
+#printSection .print-gym-address { font-size: 10.5px; color: #555555; margin-top: 2px; }
+#printSection .print-gym-sub {
+    font-size: 12.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #1a1a2e;
+    font-weight: 700;
+    margin-top: 8px;
+    padding: 3px 0;
+    border-top: 1px dashed #cccccc;
+    border-bottom: 1px dashed #cccccc;
+}
+#printSection .print-gym-meta { font-size: 11px; color: #333333; margin-top: 5px; }
+
+/* ── Summary boxes ── */
+#printSection .print-summary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+#printSection .print-summary-box {
+    flex: 1;
+    text-align: center;
+    padding: 10px 8px;
+    border: 1px solid #1a1a2e;
+    border-radius: 4px;
+    background: #fdfdfd;
+}
+#printSection .print-summary-box.highlight {
+    background: #1a1a2e !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-summary-val { font-size: 16px; font-weight: 700; }
+#printSection .print-summary-lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666666;
+    margin-top: 3px;
+}
+#printSection .print-summary-box.highlight .print-summary-lbl { color: #dddddd !important; }
+
+/* ── Table ── */
+#printSection .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5px;
+    margin-bottom: 16px;
+}
+#printSection .print-table thead tr {
+    background: #1a1a2e !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table thead th {
+    padding: 8px 8px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    border: 1px solid #1a1a2e;
+    color: #ffffff;
+}
+#printSection .print-table tbody tr td {
+    padding: 6px 8px;
+    border: 1px solid #e0e0e0;
+    vertical-align: middle;
+}
+#printSection .print-table tbody tr.even td {
+    background: #f9fafb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table tfoot tr td {
+    padding: 8px 8px;
+    background: #f3f4f6 !important;
+    font-weight: 700;
+    border: 1px solid #d1d5db;
+    border-top: 2px solid #1a1a2e;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+#printSection .print-table .text-right { text-align: right; }
+#printSection .print-table .bold { font-weight: 700; }
+
+/* ── Footer ── */
+#printSection .print-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    color: #666666;
+    margin-top: 16px;
+    border-top: 1px solid #cccccc;
+    padding-top: 8px;
+}
+
+/* ── Print Media ── */
 @media print {
-    /* Hide all screen UI */
     .sidebar, .sidebar-overlay, .topbar, .hamburger,
     .search-bar, .no-print, .alert,
     .card, script { display: none !important; }
 
-    body        { background:#fff !important; margin:0; padding:0; font-family: Arial, sans-serif; color:#000; }
-    .layout-wrapper { display:block !important; }
-    .main-content   { margin:0 !important; width:100% !important; min-height:unset; }
-    .content        { padding:0 !important; }
-    .row.g-3.mb-4   { display:none !important; }
+    body { background: #fff !important; margin: 0; padding: 0; font-family: Arial, sans-serif; color: #000; }
+    .layout-wrapper { display: block !important; }
+    .main-content { margin: 0 !important; width: 100% !important; min-height: unset; }
+    .content { padding: 0 !important; }
+    .row.g-3.mb-4 { display: none !important; }
 
-    /* Show print section */
-    #printSection { display:block !important; padding: 18px 24px; }
-
-    /* ── Letterhead ── */
-    .print-header        { text-align:center; border-bottom:3px solid #1a1a2e; padding-bottom:10px; margin-bottom:14px; }
-    .print-logo          { font-size:28px; color:#f7b731; margin-bottom:2px; }
-    .print-gym-name      { font-size:20px; font-weight:900; letter-spacing:3px; color:#1a1a2e; }
-    .print-gym-sub       { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#555; margin-top:2px; }
-    .print-gym-meta      { font-size:10px; color:#444; margin-top:6px; }
-
-    /* ── Summary boxes ── */
-    .print-summary       { display:flex; gap:0; border:1px solid #1a1a2e; margin-bottom:14px; }
-    .print-summary-box   { flex:1; text-align:center; padding:8px 4px; border-right:1px solid #1a1a2e; }
-    .print-summary-box:last-child { border-right:none; }
-    .print-summary-box.highlight  { background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-summary-val   { font-size:14px; font-weight:700; }
-    .print-summary-lbl   { font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#666; margin-top:2px; }
-    .print-summary-box.highlight .print-summary-lbl { color:#ccc; }
-
-    /* ── Table ── */
-    .print-table         { width:100%; border-collapse:collapse; font-size:10.5px; }
-    .print-table thead tr{ background:#1a1a2e; color:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table thead th{ padding:7px 8px; text-align:left; font-weight:700; font-size:10px; letter-spacing:0.5px; }
-    .print-table tbody tr td { padding:6px 8px; border-bottom:1px solid #e0e0e0; vertical-align:middle; }
-    .print-table tbody tr.even td { background:#f9f9f9; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table tfoot tr td { padding:7px 8px; background:#f0f0f0; font-weight:700; border-top:2px solid #1a1a2e; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .print-table .text-right { text-align:right; }
-    .print-table .bold       { font-weight:700; }
-
-    /* ── Footer ── */
-    .print-footer { display:flex; justify-content:space-between; font-size:9px; color:#666; margin-top:14px; border-top:1px solid #ccc; padding-top:6px; }
-
-    /* Page setup */
+    #printSection { display: block !important; padding: 18px 24px; }
     @page { margin: 12mm 10mm; size: A4 landscape; }
 }
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+function downloadCashbookPDF() {
+    var printSection = document.getElementById('printSection');
+    if (!printSection) return;
+
+    var btn = event && event.target ? event.target.closest('button') : null;
+    var originalHTML = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating PDF...';
+    }
+
+    printSection.style.display = 'block';
+
+    var opt = {
+        margin:       [8, 8, 8, 8],
+        filename:     'Cash_Book_Report.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(printSection).save().then(function() {
+        printSection.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    }).catch(function(err) {
+        console.error('PDF error:', err);
+        printSection.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    });
+}
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

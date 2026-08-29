@@ -4,7 +4,18 @@ $pageTitle = 'POS / Billing';
 include __DIR__ . '/../../includes/header.php';
 
 $msg = $_GET['msg'] ?? '';
-if ($msg === 'sale') echo '<div class="alert alert-success py-2 d-flex justify-content-between align-items-center"><span><i class="fas fa-check-circle me-1"></i>Sale completed successfully! Receipt #' . htmlspecialchars($_GET['rid'] ?? '') . '</span><a href="/gym/canteen/sales/" class="btn btn-sm btn-outline-success fw-bold"><i class="fas fa-receipt me-1"></i>View Sales</a></div>';
+if ($msg === 'sale') {
+    $saleIdParam = (int)($_GET['id'] ?? 0);
+    $ridParam = htmlspecialchars($_GET['rid'] ?? '');
+    echo '<div class="alert alert-success py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">';
+    echo '<span><i class="fas fa-check-circle me-1"></i>Sale completed successfully! Receipt #' . $ridParam . '</span>';
+    echo '<div class="d-flex gap-2">';
+    if ($saleIdParam > 0) {
+        echo '<a href="/gym/canteen/sales/thermal_receipt.php?id=' . $saleIdParam . '&autoprint=1" class="btn btn-sm btn-dark fw-bold"><i class="fas fa-print me-1"></i>Print Receipt</a>';
+    }
+    echo '<a href="/gym/canteen/sales/" class="btn btn-sm btn-outline-success fw-bold"><i class="fas fa-receipt me-1"></i>View Sales</a>';
+    echo '</div></div>';
+}
 if ($msg === 'insufficient') echo '<div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i>Insufficient stock for one or more items.</div>';
 
 $products = $pdo->query("SELECT id, name, category, unit, sale_price, stock_qty AS stock FROM canteen_products WHERE status = 'active' AND stock_qty > 0 ORDER BY name")->fetchAll();
@@ -91,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $pdo->commit();
-            header('Location: /gym/canteen/pos/index.php?msg=sale&rid=' . $receiptNo);
+            header('Location: /gym/canteen/sales/thermal_receipt.php?id=' . $sale_id . '&autoprint=1');
             exit;
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -101,42 +112,177 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
-<div class="row g-4">
+<style>
+.pos-product-card {
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 12px 10px;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+}
+.pos-product-card:hover {
+    border-color: #f59e0b;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.15);
+}
+.pos-product-card:active {
+    transform: scale(0.97);
+}
+.pos-product-card .product-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #1f2937;
+    line-height: 1.25;
+    min-height: 2.3em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.pos-product-card .product-cat {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+}
+.pos-product-card .price-tag {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #059669;
+}
+.pos-product-card .stock-tag {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+.category-pill {
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.category-pill:hover, .category-pill.active {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border-color: #f59e0b;
+}
+.qty-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 11px;
+}
+</style>
+
+<?php
+$categories = array_unique(array_filter(array_column($products, 'category')));
+sort($categories);
+?>
+
+<div class="row g-3">
+    <!-- Left Column: Product Selection Grid -->
     <div class="col-lg-7">
-        <div class="card" style="border-top: 3px solid #f59e0b;">
-            <div class="card-body">
-                <h6 class="fw-bold mb-3"><i class="fas fa-search text-warning me-2"></i>Products</h6>
-                <div class="mb-3">
-                    <input type="text" id="productSearch" class="form-control" placeholder="Search product by name..." oninput="filterProducts()">
+        <div class="card shadow-sm h-100" style="border-top: 3px solid #f59e0b;">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-th-large text-warning me-2"></i>Select Products</h6>
+                    <span class="badge bg-light text-dark border"><?php echo count($products); ?> Items Available</span>
                 </div>
-                <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
-                    <table class="table table-hover align-middle mb-0" id="productsTable">
-                        <thead class="table-dark"><tr><th>Name</th><th>Price</th><th>Stock</th><th></th></tr></thead>
-                        <tbody>
-                            <?php foreach ($products as $p): ?>
-                            <tr data-name="<?php echo strtolower(htmlspecialchars($p['name'])); ?>" class="product-row">
-                                <td class="fw-semibold"><?php echo htmlspecialchars($p['name']); ?></td>
-                                <td>Rs.<?php echo number_format($p['sale_price'], 0); ?></td>
-                                <td><?php echo $p['stock']; ?> <?php echo $p['unit']; ?></td>
-                                <td><button type="button" class="btn btn-sm btn-warning add-to-cart" data-id="<?php echo $p['id']; ?>" data-name="<?php echo htmlspecialchars($p['name']); ?>" data-price="<?php echo $p['sale_price']; ?>" data-unit="<?php echo $p['unit']; ?>"><i class="fas fa-plus"></i></button></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+
+                <!-- Search & Category Filters -->
+                <div class="mb-2">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" id="productSearch" class="form-control" placeholder="Search product name..." oninput="filterProducts()" autocomplete="off" spellcheck="false">
+                        <button type="button" class="btn btn-outline-secondary" id="clearProdSearch" style="display:none;" onclick="clearProductSearch()"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+
+                <!-- Category Pills -->
+                <?php if (!empty($categories)): ?>
+                <div class="d-flex gap-1 overflow-auto pb-2 mb-2" style="scrollbar-width: thin;">
+                    <span class="category-pill active" data-cat="all" onclick="filterCategory('all', this)">All Items</span>
+                    <?php foreach ($categories as $cat): ?>
+                        <span class="category-pill" data-cat="<?php echo htmlspecialchars(strtolower($cat)); ?>" onclick="filterCategory('<?php echo htmlspecialchars(strtolower($cat)); ?>', this)">
+                            <?php echo htmlspecialchars($cat); ?>
+                        </span>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+
+                <!-- Product Cards Grid -->
+                <div class="overflow-auto pe-1" style="max-height: 520px;" id="productsGridWrap">
+                    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-3 row-cols-xl-3 g-2" id="productsGrid">
+                        <?php if (empty($products)): ?>
+                            <div class="col-12 text-center text-muted py-5">
+                                <i class="fas fa-box-open fa-2x mb-2 text-warning"></i>
+                                <p>No active products with stock available.</p>
+                            </div>
+                        <?php endif; ?>
+                        <?php foreach ($products as $p): ?>
+                        <div class="col product-col" data-name="<?php echo strtolower(htmlspecialchars($p['name'])); ?>" data-cat="<?php echo strtolower(htmlspecialchars($p['category'] ?? '')); ?>">
+                            <div class="pos-product-card add-to-cart" data-id="<?php echo $p['id']; ?>" data-name="<?php echo htmlspecialchars($p['name']); ?>" data-price="<?php echo $p['sale_price']; ?>" data-unit="<?php echo htmlspecialchars($p['unit']); ?>" data-stock="<?php echo $p['stock']; ?>">
+                                <div>
+                                    <?php if (!empty($p['category'])): ?>
+                                        <div class="product-cat"><?php echo htmlspecialchars($p['category']); ?></div>
+                                    <?php endif; ?>
+                                    <div class="product-title" title="<?php echo htmlspecialchars($p['name']); ?>">
+                                        <?php echo htmlspecialchars($p['name']); ?>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-end mt-2 pt-2 border-top">
+                                    <div class="price-tag">Rs.<?php echo number_format($p['sale_price'], 0); ?></div>
+                                    <div class="stock-tag <?php echo $p['stock'] <= 5 ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis'; ?>">
+                                        <i class="fas fa-layer-group me-1"></i><?php echo $p['stock']; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Right Column: Current Sale / Cart -->
     <div class="col-lg-5">
-        <div class="card" style="border-top: 3px solid #10b981;">
-            <div class="card-body">
-                <h6 class="fw-bold mb-3"><i class="fas fa-receipt text-success me-2"></i>Current Sale</h6>
+        <div class="card shadow-sm h-100" style="border-top: 3px solid #10b981;">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-shopping-cart text-success me-2"></i>Current Sale</h6>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0" id="clearCartBtn" style="display:none;" onclick="clearEntireCart()"><i class="fas fa-trash me-1"></i>Clear</button>
+                </div>
+
                 <?php if (!empty($posError)): ?>
                     <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($posError); ?></div>
                 <?php endif; ?>
+
                 <form method="POST" action="" id="posForm">
+                    <!-- Customer Selection -->
                     <div class="mb-2">
-                        <label class="form-label small fw-bold">Customer Type</label>
+                        <label class="form-label small fw-bold mb-1">Customer Type</label>
                         <div class="btn-group btn-group-sm w-100" role="group">
                             <input type="radio" class="btn-check" name="customer_type" value="member" id="ctMember" checked onchange="toggleCustomerType()">
                             <label class="btn btn-outline-primary" for="ctMember"><i class="fas fa-user-tag me-1"></i>Member</label>
@@ -144,38 +290,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label class="btn btn-outline-warning" for="ctWalkin"><i class="fas fa-walking me-1"></i>Walk-in</label>
                         </div>
                     </div>
+
                     <div class="mb-2 position-relative" id="memberFieldWrap">
-                        <label class="form-label small fw-bold">Select Member</label>
+                        <label class="form-label small fw-bold mb-1">Search Member</label>
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" id="memberSearch" class="form-control" placeholder="Type name or phone to search members..." autocomplete="off">
+                            <span class="input-group-text"><i class="fas fa-user text-muted"></i></span>
+                            <input type="text" id="memberSearch" class="form-control" placeholder="Type member name or phone..." autocomplete="off" spellcheck="false">
                             <button type="button" class="btn btn-outline-secondary" id="memberClear" title="Clear" style="display:none;"><i class="fas fa-times"></i></button>
                         </div>
                         <input type="hidden" name="pos_member_id" id="posMemberId" value="0">
-                        <div id="memberResults" class="list-group position-absolute w-100 shadow" style="z-index:1050; display:none; max-height:220px; overflow-y:auto;"></div>
-                        <small class="text-muted">Start typing — matching members will appear.</small>
+                        <div id="memberResults" class="list-group position-absolute w-100 shadow" style="z-index:1050; display:none; max-height:200px; overflow-y:auto; border-radius:6px;"></div>
                     </div>
+
                     <div class="mb-2" id="walkinFieldWrap" style="display:none;">
-                        <label class="form-label small fw-bold">Customer Name (optional)</label>
-                        <input type="text" id="walkinName" class="form-control form-control-sm" placeholder="e.g. random customer ka naam..." autocomplete="off">
-                        <small class="text-muted">Leave empty for anonymous walk-in.</small>
+                        <label class="form-label small fw-bold mb-1">Customer Name (Optional)</label>
+                        <input type="text" id="walkinName" class="form-control form-control-sm" placeholder="e.g. Walk-in customer name..." autocomplete="off">
                     </div>
-                    <div class="table-responsive mb-3" style="max-height: 240px; overflow-y: auto;">
+
+                    <!-- Cart Items Table -->
+                    <div class="table-responsive mb-2" style="max-height: 230px; min-height: 120px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
                         <table class="table table-sm align-middle mb-0" id="cartTable">
-                            <thead><tr><th>Item</th><th style="width:70px;">Qty</th><th>Price</th><th>Total</th><th style="width:30px;"></th></tr></thead>
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="text-center" style="width:105px;">Qty</th>
+                                    <th class="text-end">Price</th>
+                                    <th class="text-end">Total</th>
+                                    <th style="width:25px;"></th>
+                                </tr>
+                            </thead>
                             <tbody id="cartBody">
-                                <tr><td colspan="5" class="text-center text-muted py-3"><i class="fas fa-cart-plus me-1"></i>Add products to start</td></tr>
+                                <tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-cart-plus me-1"></i>Click product cards on the left to add</td></tr>
                             </tbody>
                         </table>
                     </div>
 
+                    <!-- Payment Controls -->
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label small fw-bold">Discount (Rs.)</label>
+                            <label class="form-label small fw-bold mb-1">Discount (Rs.)</label>
                             <input type="number" step="1" name="pos_discount" id="posDiscount" class="form-control form-control-sm" value="0" min="0" oninput="recalcPOS()">
                         </div>
                         <div class="col-6">
-                            <label class="form-label small fw-bold">Payment Method</label>
+                            <label class="form-label small fw-bold mb-1">Payment Method</label>
                             <select name="pos_payment_method" class="form-select form-select-sm">
                                 <option value="cash">Cash</option>
                                 <option value="card">Card</option>
@@ -184,18 +341,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small fw-bold">Amount Received (Rs.)</label>
+                        <label class="form-label small fw-bold mb-1">Amount Received (Rs.)</label>
                         <input type="number" step="1" name="pos_received" id="posReceived" class="form-control form-control-sm" value="0" min="0" oninput="recalcPOS()">
                     </div>
 
-                    <div class="bg-light rounded p-3 mt-3">
-                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">Subtotal:</span><span class="fw-bold" id="posSubtotal">Rs.0</span></div>
-                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">Discount:</span><span class="text-danger fw-bold" id="posDiscDisplay">- Rs.0</span></div>
-                        <div class="d-flex justify-content-between mb-1"><span class="text-muted fw-bold fs-5">Total:</span><span class="fw-bold fs-5 text-success" id="posTotal">Rs.0</span></div>
-                        <div class="d-flex justify-content-between"><span class="text-muted">Change:</span><span class="fw-bold text-primary" id="posChange">Rs.0</span></div>
+                    <!-- Summary Card -->
+                    <div class="bg-light rounded p-2.5 mt-2 border">
+                        <div class="d-flex justify-content-between mb-1 small"><span class="text-muted">Subtotal:</span><span class="fw-bold" id="posSubtotal">Rs.0</span></div>
+                        <div class="d-flex justify-content-between mb-1 small"><span class="text-muted">Discount:</span><span class="text-danger fw-bold" id="posDiscDisplay">- Rs.0</span></div>
+                        <div class="d-flex justify-content-between mb-1"><span class="fw-bold fs-6">Net Payable:</span><span class="fw-bold fs-5 text-success" id="posTotal">Rs.0</span></div>
+                        <div class="d-flex justify-content-between small"><span class="text-muted">Change:</span><span class="fw-bold text-primary" id="posChange">Rs.0</span></div>
                     </div>
 
-                    <button type="submit" class="btn btn-success btn-lg fw-bold w-100 mt-3" id="checkoutBtn" disabled><i class="fas fa-check-circle me-1"></i>Complete Sale</button>
+                    <button type="submit" class="btn btn-success btn-lg fw-bold w-100 mt-2.5 shadow-sm" id="checkoutBtn" disabled>
+                        <i class="fas fa-print me-1"></i>Complete &amp; Print Sale
+                    </button>
                 </form>
             </div>
         </div>
@@ -204,7 +364,157 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
 let cart = [];
+let currentCategory = 'all';
 
+// Product Filtering
+function filterProducts() {
+    const q = document.getElementById('productSearch').value.trim().toLowerCase();
+    const clearBtn = document.getElementById('clearProdSearch');
+    clearBtn.style.display = q.length > 0 ? 'inline-block' : 'none';
+
+    document.querySelectorAll('.product-col').forEach(function(col) {
+        const nameMatch = col.getAttribute('data-name').includes(q);
+        const catMatch = (currentCategory === 'all' || col.getAttribute('data-cat') === currentCategory);
+        col.style.display = (nameMatch && catMatch) ? '' : 'none';
+    });
+}
+
+function clearProductSearch() {
+    document.getElementById('productSearch').value = '';
+    filterProducts();
+    document.getElementById('productSearch').focus();
+}
+
+function filterCategory(cat, el) {
+    currentCategory = cat;
+    document.querySelectorAll('.category-pill').forEach(function(p) { p.classList.remove('active'); });
+    el.classList.add('active');
+    filterProducts();
+}
+
+// Add to cart on product tile click
+document.querySelectorAll('.add-to-cart').forEach(function(card) {
+    card.addEventListener('click', function() {
+        const id = parseInt(this.getAttribute('data-id'));
+        const name = this.getAttribute('data-name');
+        const price = parseFloat(this.getAttribute('data-price'));
+        const unit = this.getAttribute('data-unit');
+        const stock = parseInt(this.getAttribute('data-stock'));
+
+        const existing = cart.find(function(c) { return c.id === id; });
+        if (existing) {
+            if (existing.qty < stock) {
+                existing.qty++;
+            } else {
+                alert('Maximum available stock for ' + name + ' is ' + stock);
+            }
+        } else {
+            cart.push({
+                id: id,
+                name: name,
+                price: price,
+                unit: unit,
+                stock: stock,
+                qty: 1
+            });
+        }
+        renderCart();
+    });
+});
+
+function renderCart() {
+    const tbody = document.getElementById('cartBody');
+    const clearCartBtn = document.getElementById('clearCartBtn');
+
+    if (cart.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-cart-plus me-1"></i>Click product cards on the left to add</td></tr>';
+        clearCartBtn.style.display = 'none';
+    } else {
+        tbody.innerHTML = '';
+        clearCartBtn.style.display = 'inline-block';
+        cart.forEach(function(item, index) {
+            const total = item.price * item.qty;
+            tbody.innerHTML += '<tr class="cart-item-row">' +
+                '<td class="fw-semibold small py-1.5">' + escapeHtml(item.name) + '</td>' +
+                '<td class="text-center py-1.5">' +
+                    '<div class="d-inline-flex align-items-center gap-1">' +
+                        '<button type="button" class="btn btn-outline-secondary qty-btn" onclick="stepQty(' + index + ', -1)"><i class="fas fa-minus"></i></button>' +
+                        '<input type="number" min="1" max="' + item.stock + '" value="' + item.qty + '" class="form-control form-control-sm text-center px-1" style="width:38px;height:24px;font-size:12px;" onchange="updateQty(' + index + ', this.value)">' +
+                        '<button type="button" class="btn btn-outline-secondary qty-btn" onclick="stepQty(' + index + ', 1)"><i class="fas fa-plus"></i></button>' +
+                    '</div>' +
+                '</td>' +
+                '<td class="text-end small py-1.5">Rs.' + item.price.toLocaleString() + '</td>' +
+                '<td class="text-end fw-bold small text-success py-1.5">Rs.' + Math.round(total).toLocaleString() + '</td>' +
+                '<td class="text-center py-1.5"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 border-0" onclick="removeItem(' + index + ')" title="Remove item"><i class="fas fa-trash-alt"></i></button></td>' +
+            '</tr>';
+        });
+    }
+    recalcPOS();
+}
+
+function escapeHtml(text) {
+    var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function stepQty(index, delta) {
+    const item = cart[index];
+    const newQty = item.qty + delta;
+    if (newQty <= 0) {
+        removeItem(index);
+    } else if (newQty > item.stock) {
+        alert('Maximum available stock is ' + item.stock);
+    } else {
+        item.qty = newQty;
+        renderCart();
+    }
+}
+
+function updateQty(index, val) {
+    const q = parseInt(val);
+    const item = cart[index];
+    if (q > 0) {
+        if (q > item.stock) {
+            alert('Maximum available stock is ' + item.stock);
+            item.qty = item.stock;
+        } else {
+            item.qty = q;
+        }
+    } else {
+        cart.splice(index, 1);
+    }
+    renderCart();
+}
+
+function removeItem(index) {
+    cart.splice(index, 1);
+    renderCart();
+}
+
+function clearEntireCart() {
+    if (confirm('Are you sure you want to clear the current sale?')) {
+        cart = [];
+        renderCart();
+    }
+}
+
+function recalcPOS() {
+    let subtotal = 0;
+    cart.forEach(function(item) { subtotal += item.price * item.qty; });
+    const discount = parseFloat(document.getElementById('posDiscount').value) || 0;
+    const total = Math.max(0, subtotal - discount);
+    const received = parseFloat(document.getElementById('posReceived').value) || 0;
+    const change = Math.max(0, received - total);
+
+    document.getElementById('posSubtotal').textContent = 'Rs.' + Math.round(subtotal).toLocaleString();
+    document.getElementById('posDiscDisplay').textContent = '- Rs.' + Math.round(discount).toLocaleString();
+    document.getElementById('posTotal').textContent = 'Rs.' + Math.round(total).toLocaleString();
+    document.getElementById('posChange').textContent = 'Rs.' + Math.round(change).toLocaleString();
+
+    document.getElementById('checkoutBtn').disabled = cart.length === 0 || total <= 0;
+}
+
+// Member Search Autocomplete
 const memberInput = document.getElementById('memberSearch');
 const memberResults = document.getElementById('memberResults');
 const memberIdInput = document.getElementById('posMemberId');
@@ -216,26 +526,28 @@ memberInput.addEventListener('input', function() {
     if (q.length < 1) {
         memberResults.style.display = 'none';
         memberResults.innerHTML = '';
+        document.getElementById('memberClear').style.display = 'none';
         return;
     }
+    document.getElementById('memberClear').style.display = 'inline-block';
     memberTimer = setTimeout(function() {
         fetch('/gym/canteen/pos/search_member.php?q=' + encodeURIComponent(q))
             .then(function(r) { return r.json(); })
             .then(function(members) {
                 memberResults.innerHTML = '';
                 if (members.length === 0) {
-                    memberResults.innerHTML = '<span class="list-group-item small text-muted"><i class="fas fa-user-slash me-1"></i>No members found</span>';
+                    memberResults.innerHTML = '<span class="list-group-item small text-muted py-2 text-center"><i class="fas fa-user-slash me-1"></i>No members found</span>';
                 } else {
                     members.forEach(function(m) {
                         const btn = document.createElement('button');
                         btn.type = 'button';
-                        btn.className = 'list-group-item list-group-item-action small py-1';
-                        btn.innerHTML = '<i class="fas fa-user me-2 text-muted"></i>' + m.name + ' <small class="text-muted">(' + (m.phone || '-') + ')</small>';
+                        btn.className = 'list-group-item list-group-item-action small py-2 d-flex justify-content-between align-items-center';
+                        btn.innerHTML = '<div><strong>' + escapeHtml(m.name) + '</strong><br><small class="text-muted"><i class="fas fa-phone me-1"></i>' + (m.phone || 'No phone') + '</small></div><span class="badge bg-light text-dark border">Select</span>';
                         btn.addEventListener('mousedown', function(e) {
                             e.preventDefault();
                             memberIdInput.value = m.id;
-                            memberInput.value = m.name;
-                            document.getElementById('memberClear').style.display = '';
+                            memberInput.value = m.name + (m.phone ? ' (' + m.phone + ')' : '');
+                            document.getElementById('memberClear').style.display = 'inline-block';
                             memberResults.style.display = 'none';
                         });
                         memberResults.appendChild(btn);
@@ -243,13 +555,15 @@ memberInput.addEventListener('input', function() {
                 }
                 memberResults.style.display = 'block';
             });
-    }, 250);
+    }, 200);
 });
 
 document.getElementById('memberClear').addEventListener('click', function() {
     memberIdInput.value = 0;
     memberInput.value = '';
     this.style.display = 'none';
+    memberResults.style.display = 'none';
+    memberResults.innerHTML = '';
 });
 
 function toggleCustomerType() {
@@ -272,79 +586,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-function filterProducts() {
-    const q = document.getElementById('productSearch').value.toLowerCase();
-    document.querySelectorAll('.product-row').forEach(function(r) {
-        r.style.display = r.getAttribute('data-name').includes(q) ? '' : 'none';
-    });
-}
-
-document.querySelectorAll('.add-to-cart').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        const id = parseInt(this.getAttribute('data-id'));
-        const existing = cart.find(function(c) { return c.id === id; });
-        if (existing) {
-            existing.qty++;
-        } else {
-            cart.push({
-                id: id,
-                name: this.getAttribute('data-name'),
-                price: parseFloat(this.getAttribute('data-price')),
-                unit: this.getAttribute('data-unit'),
-                qty: 1
-            });
-        }
-        renderCart();
-    });
-});
-
-function renderCart() {
-    const tbody = document.getElementById('cartBody');
-    if (cart.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3"><i class="fas fa-cart-plus me-1"></i>Add products to start</td></tr>';
-    } else {
-        tbody.innerHTML = '';
-        cart.forEach(function(item, index) {
-            const total = item.price * item.qty;
-            tbody.innerHTML += '<tr>' +
-                '<td class="fw-semibold small">' + item.name + '</td>' +
-                '<td><input type="number" min="1" value="' + item.qty + '" class="form-control form-control-sm text-center" style="width:60px;" onchange="updateQty(' + index + ', this.value)"></td>' +
-                '<td class="small">Rs.' + item.price.toLocaleString() + '</td>' +
-                '<td class="fw-bold small">Rs.' + Math.round(total).toLocaleString() + '</td>' +
-                '<td><button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="removeItem(' + index + ')"><i class="fas fa-times"></i></button></td>' +
-            '</tr>';
-        });
-    }
-    recalcPOS();
-}
-
-function updateQty(index, val) {
-    const q = parseInt(val);
-    if (q > 0) { cart[index].qty = q; } else { cart.splice(index, 1); }
-    renderCart();
-}
-
-function removeItem(index) {
-    cart.splice(index, 1);
-    renderCart();
-}
-
-function recalcPOS() {
-    let subtotal = 0;
-    cart.forEach(function(item) { subtotal += item.price * item.qty; });
-    const discount = parseFloat(document.getElementById('posDiscount').value) || 0;
-    const total = Math.max(0, subtotal - discount);
-    const received = parseFloat(document.getElementById('posReceived').value) || 0;
-    const change = Math.max(0, received - total);
-
-    document.getElementById('posSubtotal').textContent = 'Rs.' + Math.round(subtotal).toLocaleString();
-    document.getElementById('posDiscDisplay').textContent = '- Rs.' + Math.round(discount).toLocaleString();
-    document.getElementById('posTotal').textContent = 'Rs.' + Math.round(total).toLocaleString();
-    document.getElementById('posChange').textContent = 'Rs.' + Math.round(change).toLocaleString();
-
-    document.getElementById('checkoutBtn').disabled = cart.length === 0 || total <= 0;
-}
-
+// Form Submission
 document.getElementById('posForm').addEventListener('submit', function(e) {
     const form = this;
     cart.forEach(function(item) {

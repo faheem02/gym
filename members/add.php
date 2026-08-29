@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        header('Location: /gym/members/slip.php?id=' . $memberId);
+        header('Location: /gym/members/slip.php?id=' . $memberId . '&autoprint=1');
         exit;
     }
 }
@@ -194,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="d-flex gap-2 mt-3">
-                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Save Member</button>
+                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-print me-1"></i>Save & Print Member</button>
                 <a href="index.php" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

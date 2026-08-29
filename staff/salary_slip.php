@@ -95,8 +95,8 @@ $balance = $totalEarned - $totalPaid;
 <body>
     <div class="slip">
         <div class="slip-header">
-            <div class="gym-logo"><img src="<?php echo GYM_LOGO; ?>" alt="<?php echo htmlspecialchars(GYM_NAME); ?>"></div>
-            <div class="gym-contact"><?php echo htmlspecialchars(GYM_OWNER); ?> | <?php echo htmlspecialchars(GYM_PHONE); ?></div>
+            <div class="gym-logo"><img src="<?php echo GYM_LOGO; ?>" alt="<?php echo htmlspecialchars(GYM_NAME); ?>" onerror="this.onerror=null; this.src='/gym/logo/The%20Compound%20Logo-01.png';"></div>
+            <div class="gym-contact"><?php echo htmlspecialchars(GYM_PHONE); ?></div>
             <div class="gym-contact"><?php echo htmlspecialchars(GYM_ADDRESS); ?></div>
             <div class="slip-title">Salary Payment Slip</div>
         </div>
@@ -161,8 +161,47 @@ $balance = $totalEarned - $totalPaid;
         </div>
     </div>
 
-    <div class="actions">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <div class="actions" style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
         <button class="btn-print" onclick="window.print();"><i class="fas fa-print me-1"></i>Print Salary Slip</button>
+        <button class="btn-print" style="background:#0284c7;" onclick="downloadSalarySlipPDF();"><i class="fas fa-file-pdf me-1"></i>Download PDF</button>
+        <a href="/gym/staff/salaries.php" class="btn-print" style="background:#fff; color:#333; border:1px solid #ccc; text-decoration:none;"><i class="fas fa-arrow-left me-1"></i>Back</a>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+    function downloadSalarySlipPDF() {
+        var element = document.querySelector('.slip');
+        if (!element) return;
+
+        var btn = event && event.target ? event.target.closest('button') : null;
+        var originalHTML = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating PDF...';
+        }
+
+        var opt = {
+            margin:       [8, 8, 8, 8],
+            filename:     'Salary_Slip_<?php echo preg_replace('/[^A-Za-z0-9_-]/', '_', $payment['staff_name']) . '_' . $payment['salary_month']; ?>.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(function() {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }).catch(function(err) {
+            console.error('PDF error:', err);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        });
+    }
+    </script>
 </body>
 </html>

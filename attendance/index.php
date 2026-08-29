@@ -81,14 +81,15 @@ $todayLog = $stmt->fetchAll();
                 <h6 class="fw-bold mb-3"><i class="fas fa-sign-in-alt text-success me-2"></i>Check-in</h6>
                 <form method="POST" action="">
                     <input type="hidden" name="action" value="checkin">
-                    <div class="mb-3">
+                    <div class="mb-3 position-relative">
                         <label class="form-label"><i class="fas fa-user me-1 text-muted"></i>Member</label>
-                        <select name="member_id" class="form-select" required>
-                            <option value="">-- Select Member --</option>
-                            <?php foreach ($members as $m): ?>
-                                <option value="<?php echo $m['id']; ?>"><?php echo htmlspecialchars($m['name']) . ' (' . htmlspecialchars($m['phone']) . ')'; ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="attInMemberSearch" class="form-control" placeholder="Type member name or phone..." autocomplete="off" spellcheck="false" required>
+                            <button type="button" class="btn btn-outline-secondary" id="clearAttInMember" style="display:none;"><i class="fas fa-times"></i></button>
+                        </div>
+                        <input type="hidden" name="member_id" id="attInMemberId" required>
+                        <div id="attInMemberResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label"><i class="fas fa-calendar me-1 text-muted"></i>Date</label>
@@ -104,18 +105,15 @@ $todayLog = $stmt->fetchAll();
                 <h6 class="fw-bold mb-3"><i class="fas fa-sign-out-alt text-danger me-2"></i>Check-out</h6>
                 <form method="POST" action="">
                     <input type="hidden" name="action" value="checkout">
-                    <div class="mb-3">
-                        <label class="form-label"><i class="fas fa-user me-1 text-muted"></i>Member</label>
-                        <select name="member_id" class="form-select" required>
-                            <option value="">-- Select Member --</option>
-                            <?php if (empty($checkedInMembers)): ?>
-                                <option value="" disabled>No members checked in today</option>
-                            <?php else: ?>
-                                <?php foreach ($checkedInMembers as $m): ?>
-                                    <option value="<?php echo $m['id']; ?>"><?php echo htmlspecialchars($m['name']) . ' (' . htmlspecialchars($m['phone']) . ')'; ?></option>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </select>
+                    <div class="mb-3 position-relative">
+                        <label class="form-label"><i class="fas fa-user me-1 text-muted"></i>Member (Checked-In)</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="attOutMemberSearch" class="form-control" placeholder="<?php echo empty($checkedInMembers) ? 'No members currently in gym' : 'Type name to check out...'; ?>" autocomplete="off" spellcheck="false" <?php if (empty($checkedInMembers)) echo 'disabled'; ?> required>
+                            <button type="button" class="btn btn-outline-secondary" id="clearAttOutMember" style="display:none;"><i class="fas fa-times"></i></button>
+                        </div>
+                        <input type="hidden" name="member_id" id="attOutMemberId" required>
+                        <div id="attOutMemberResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label"><i class="fas fa-calendar me-1 text-muted"></i>Date</label>
@@ -132,9 +130,9 @@ $todayLog = $stmt->fetchAll();
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="fw-bold mb-0"><i class="fas fa-history text-primary me-2"></i>Attendance Log</h6>
-                    <form method="GET" action="" class="d-flex">
-                        <input type="date" name="date" class="form-control me-2" value="<?php echo $date; ?>">
-                        <button class="btn btn-dark"><i class="fas fa-filter me-1"></i>Filter</button>
+                    <form method="GET" action="" class="d-flex align-items-center gap-2">
+                        <input type="date" name="date" class="form-control form-control-sm" value="<?php echo htmlspecialchars($date); ?>">
+                        <button type="submit" class="btn btn-dark btn-sm text-nowrap"><i class="fas fa-filter me-1"></i>Filter</button>
                     </form>
                 </div>
                 <div class="table-responsive">
@@ -201,5 +199,111 @@ $todayLog = $stmt->fetchAll();
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+    function setupAutocomplete(cfg) {
+        var items = cfg.items;
+        var searchInput = document.getElementById(cfg.searchInputId);
+        var hiddenInput = document.getElementById(cfg.hiddenInputId);
+        var resultsBox = document.getElementById(cfg.resultsBoxId);
+        var clearBtn = document.getElementById(cfg.clearBtnId);
+
+        if (!searchInput || !hiddenInput || !resultsBox) return;
+
+        function escapeHtml(text) {
+            var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return (text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        function renderList(query) {
+            var q = (query || '').trim().toLowerCase();
+            resultsBox.innerHTML = '';
+
+            if (q.length < 1) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+
+            var filtered = items.filter(function(m) {
+                return m.name.toLowerCase().includes(q) || (m.phone && m.phone.toLowerCase().includes(q));
+            });
+
+            if (filtered.length === 0) {
+                resultsBox.innerHTML = '<div class="list-group-item text-muted py-2 text-center small"><i class="fas fa-user-slash me-1"></i>No matching members</div>';
+                resultsBox.style.display = 'block';
+                return;
+            }
+
+            filtered.slice(0, 30).forEach(function(m) {
+                var a = document.createElement('a');
+                a.href = '#';
+                a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 small';
+                a.innerHTML = '<div><strong>' + escapeHtml(m.name) + '</strong><br><span class="text-muted"><i class="fas fa-phone me-1"></i>' + (m.phone || 'No phone') + '</span></div><span class="badge bg-light text-dark border">Select</span>';
+                
+                a.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    searchInput.value = m.name + (m.phone ? ' (' + m.phone + ')' : '');
+                    hiddenInput.value = m.id;
+                    resultsBox.style.display = 'none';
+                    if (clearBtn) clearBtn.style.display = 'inline-block';
+                });
+                resultsBox.appendChild(a);
+            });
+
+            resultsBox.style.display = 'block';
+        }
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 1) {
+                renderList(this.value);
+            }
+        });
+
+        searchInput.addEventListener('input', function() {
+            hiddenInput.value = '';
+            if (clearBtn) {
+                clearBtn.style.display = this.value.trim().length > 0 ? 'inline-block' : 'none';
+            }
+            renderList(this.value);
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                hiddenInput.value = '';
+                clearBtn.style.display = 'none';
+                resultsBox.style.display = 'none';
+                resultsBox.innerHTML = '';
+                searchInput.focus();
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#' + cfg.searchInputId) && !e.target.closest('#' + cfg.resultsBoxId)) {
+                resultsBox.style.display = 'none';
+            }
+        });
+    }
+
+    // Check-in
+    setupAutocomplete({
+        items: <?php echo json_encode($members); ?>,
+        searchInputId: 'attInMemberSearch',
+        hiddenInputId: 'attInMemberId',
+        resultsBoxId: 'attInMemberResults',
+        clearBtnId: 'clearAttInMember'
+    });
+
+    // Check-out
+    setupAutocomplete({
+        items: <?php echo json_encode($checkedInMembers); ?>,
+        searchInputId: 'attOutMemberSearch',
+        hiddenInputId: 'attOutMemberId',
+        resultsBoxId: 'attOutMemberResults',
+        clearBtnId: 'clearAttOutMember'
+    });
+})();
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

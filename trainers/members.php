@@ -15,18 +15,28 @@ if (!$trainer) {
     exit;
 }
 
-$members = $pdo->prepare('SELECT * FROM members WHERE trainer_id = ? ORDER BY name ASC');
-$members->execute([$trainer_id]);
-$members = $members->fetchAll();
+$search = trim($_GET['search'] ?? '');
+$sql = 'SELECT * FROM members WHERE trainer_id = ?';
+$params = [$trainer_id];
+if ($search !== '') {
+    $sql .= ' AND (name LIKE ? OR phone LIKE ? OR email LIKE ?)';
+    $params[] = '%' . $search . '%';
+    $params[] = '%' . $search . '%';
+    $params[] = '%' . $search . '%';
+}
+$sql .= ' ORDER BY name ASC';
+$membersStmt = $pdo->prepare($sql);
+$membersStmt->execute($params);
+$members = $membersStmt->fetchAll();
 ?>
 
 <div class="mb-4">
     <a href="index.php" class="btn btn-warning fw-bold" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-arrow-left me-1"></i>Back to Trainers</a>
 </div>
 
-<div class="card mb-4" style="border-top:3px solid #f7b731;">
+<div class="card mb-4 shadow-sm" style="border-top:3px solid #f7b731;">
     <div class="card-body">
-        <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
             <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#f7b731,#f5a623);display:flex;align-items:center;justify-content:center;">
                 <i class="fas fa-user-tie text-white" style="font-size:1.3rem;"></i>
             </div>
@@ -35,13 +45,33 @@ $members = $members->fetchAll();
                 <small class="text-muted"><i class="fas fa-star me-1"></i><?php echo htmlspecialchars($trainer['specialty'] ?? 'General'); ?> &nbsp;|&nbsp; <i class="fas fa-phone me-1"></i><?php echo htmlspecialchars($trainer['phone']); ?></small>
             </div>
             <div class="ms-auto">
-                <span class="badge text-bg-success fs-6"><?php echo count($members); ?> Member<?php echo count($members) !== 1 ? 's' : ''; ?></span>
+                <span class="badge text-bg-success fs-6"><?php echo count($members); ?> Assigned Member<?php echo count($members) !== 1 ? 's' : ''; ?></span>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card">
+<!-- Search Members Bar -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-body p-3">
+        <form method="GET" class="row g-2 align-items-end">
+            <input type="hidden" name="trainer_id" value="<?php echo $trainer_id; ?>">
+            <div class="col-md-9">
+                <label class="form-label small fw-bold mb-1">Search Assigned Members</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" name="search" class="form-control" placeholder="Search by member name, phone..." value="<?php echo htmlspecialchars($search); ?>" autocomplete="off">
+                </div>
+            </div>
+            <div class="col-md-3 d-flex gap-1">
+                <button type="submit" class="btn btn-warning btn-sm flex-fill fw-bold" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-filter me-1"></i>Filter</button>
+                <a href="members.php?trainer_id=<?php echo $trainer_id; ?>" class="btn btn-outline-secondary btn-sm" title="Clear"><i class="fas fa-times"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead>
@@ -56,7 +86,7 @@ $members = $members->fetchAll();
             </thead>
             <tbody>
                 <?php if (empty($members)): ?>
-                    <tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No members assigned to this trainer yet.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No matching members found for this trainer.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($members as $m): ?>
                     <tr>

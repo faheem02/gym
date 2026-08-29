@@ -1,5 +1,9 @@
 <?php
-session_start();
+ob_start();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'gym_db');
@@ -7,11 +11,10 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 
 // Business / Gym Profile Info
-define('GYM_NAME', 'The Compound');
-define('GYM_OWNER', 'Ali Muqadas');
-define('GYM_PHONE', '03438033322');
+define('GYM_NAME', 'The Compound Gym');
+define('GYM_PHONE', '03250133322');
 define('GYM_ADDRESS', 'PLOT 1 PASCO HOUSING SOCIETY NEAR EME SOCIETY CANAL ROAD');
-define('GYM_LOGO', '/gym/logo/The Compound Logo-01.png');
+define('GYM_LOGO', '/gym/logo/logo.png');
 
 try {
     $pdo = new PDO(
