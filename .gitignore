@@ -1,0 +1,10 @@
+# Vendor assets (CDN se local copy)
+assets/vendor/
+
+# Production database dump (real data - private)
+database_live_ready.sql
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini

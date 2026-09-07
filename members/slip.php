@@ -25,6 +25,29 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
 $stmt2 = $pdo->prepare("SELECT * FROM member_payments WHERE member_id = ? ORDER BY id DESC LIMIT 1");
 $stmt2->execute([$id]);
 $lastPayment = $stmt2->fetch();
+
+$stmtSum = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_paid FROM member_payments WHERE member_id = ?");
+$stmtSum->execute([$id]);
+$totalPaid = (float)$stmtSum->fetch()['total_paid'];
+
+$accessTypeLabels = [
+    'gym' => ['label' => 'Gym Access', 'color' => '#2563eb', 'bg' => '#eff6ff'],
+    'kids_play' => ['label' => 'Kids Play Area', 'color' => '#059669', 'bg' => '#ecfdf5'],
+    'both' => ['label' => 'Gym + Kids Play Area', 'color' => '#d97706', 'bg' => '#fffbeb'],
+];
+$currAccess = $accessTypeLabels[$member['access_type'] ?? 'gym'] ?? $accessTypeLabels['gym'];
+
+$regFee = (float)($member['registration_fee'] ?? 0);
+$monthlyFee = (float)($member['monthly_fee'] ?? 0);
+if ($monthlyFee == 0 && $activeSub) {
+    $monthlyFee = (float)$activeSub['price'];
+}
+$kidsFee = (float)($member['kids_fee'] ?? 0);
+$trainerFee = (float)($member['trainer_fee'] ?? 0);
+$discount = (float)($member['discount'] ?? 0);
+$totalPayable = max(0, ($regFee + $monthlyFee + $kidsFee + $trainerFee) - $discount);
+$remainingDue = max(0, $totalPayable - $totalPaid);
+
 $autoprint = !empty($_GET['autoprint']);
 ?>
 <!DOCTYPE html>
@@ -33,8 +56,6 @@ $autoprint = !empty($_GET['autoprint']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Membership Slip #<?php echo $member['id']; ?> - <?php echo htmlspecialchars(GYM_NAME); ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128+Text&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --dark: #111827;
@@ -352,6 +373,12 @@ $autoprint = !empty($_GET['autoprint']);
                     <td>Full Name</td>
                     <td><?php echo htmlspecialchars($member['name']); ?></td>
                 </tr>
+                <?php if (!empty($member['guardian_name'])): ?>
+                <tr>
+                    <td>Parent / Guardian</td>
+                    <td><?php echo htmlspecialchars($member['guardian_name']); ?></td>
+                </tr>
+                <?php endif; ?>
                 <tr>
                     <td>Contact</td>
                     <td><?php echo htmlspecialchars($member['phone']); ?><?php if (!empty($member['email'])): ?> &middot; <?php echo htmlspecialchars($member['email']); ?><?php endif; ?></td>
@@ -377,6 +404,10 @@ $autoprint = !empty($_GET['autoprint']);
                     <td>Status</td>
                     <td><span class="status <?php echo $member['status']; ?>"><?php echo ucfirst($member['status']); ?></span></td>
                 </tr>
+                <tr>
+                    <td>Access Type</td>
+                    <td><span style="display:inline-block; padding:3px 10px; font-weight:700; font-size:11px; text-transform:uppercase; border:1px solid <?php echo $currAccess['color']; ?>; color:<?php echo $currAccess['color']; ?>; background:<?php echo $currAccess['bg']; ?>;"><?php echo htmlspecialchars($currAccess['label']); ?></span></td>
+                </tr>
                 <?php if (!empty($member['membership_type'])): ?>
                 <tr>
                     <td>Membership Type</td>
@@ -391,11 +422,11 @@ $autoprint = !empty($_GET['autoprint']);
                 <?php endif; ?>
                 <?php if (!empty($member['area_of_interest'])): ?>
                 <tr>
-                    <td>Area of Interest</td>
+                    <td>Fitness Goals</td>
                     <td>
                         <div class="interest-tags">
                             <?php foreach (array_map('trim', explode(',', $member['area_of_interest'])) as $i): ?>
-                                <span><?php echo htmlspecialchars($i); ?></span>
+                                <span><i class="fas fa-check text-success me-1"></i><?php echo htmlspecialchars($i); ?></span>
                             <?php endforeach; ?>
                         </div>
                     </td>
@@ -426,6 +457,61 @@ $autoprint = !empty($_GET['autoprint']);
                 </div>
             </div>
             <?php endif; ?>
+
+            <div class="section-title">Fee &amp; Payment Summary</div>
+            <table class="info-table" style="margin-bottom: 10px;">
+                <tr>
+                    <td>Registration Fee</td>
+                    <td>Rs. <?php echo number_format($regFee, 2); ?></td>
+                </tr>
+                <?php if ($monthlyFee > 0): ?>
+                <tr>
+                    <td>Gym Monthly Fee</td>
+                    <td>Rs. <?php echo number_format($monthlyFee, 2); ?></td>
+                </tr>
+                <?php endif; ?>
+                <?php if ($kidsFee > 0): ?>
+                <tr>
+                    <td>Kids Play Area Fee</td>
+                    <td>Rs. <?php echo number_format($kidsFee, 2); ?></td>
+                </tr>
+                <?php endif; ?>
+                <?php if ($trainerFee > 0): ?>
+                <tr>
+                    <td>Trainer Fee</td>
+                    <td>Rs. <?php echo number_format($trainerFee, 2); ?></td>
+                </tr>
+                <?php endif; ?>
+                <?php if ($discount > 0): ?>
+                <tr>
+                    <td>Discount</td>
+                    <td style="color:#dc2626;">- Rs. <?php echo number_format($discount, 2); ?></td>
+                </tr>
+                <?php endif; ?>
+                <tr style="border-top:1px solid #111827; font-weight:700;">
+                    <td>Total Payable</td>
+                    <td style="font-size:14px; color:#111827;">Rs. <?php echo number_format($totalPayable, 2); ?></td>
+                </tr>
+                <tr>
+                    <td>Amount Paid</td>
+                    <td style="color:#059669; font-weight:700;">
+                        Rs. <?php echo number_format($totalPaid, 2); ?>
+                        <?php if ($lastPayment): ?>
+                            <span style="font-size:11px; font-weight:normal; color:#6b7280;">(via <?php echo ucfirst(str_replace('_', ' ', $lastPayment['payment_method'])); ?> on <?php echo date('d M Y', strtotime($lastPayment['payment_date'])); ?>)</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr style="border-top:1px solid #e5e7eb;">
+                    <td>Remaining Balance</td>
+                    <td>
+                        <?php if ($remainingDue <= 0): ?>
+                            <span style="color:#059669; font-weight:700;">Nil (Fully Paid)</span>
+                        <?php else: ?>
+                            <span style="color:#dc2626; font-weight:700;">Rs. <?php echo number_format($remainingDue, 2); ?> (Due)</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
 
             <!-- Signatures -->
             <div class="signatures">
@@ -460,12 +546,9 @@ $autoprint = !empty($_GET['autoprint']);
         <button class="btn-print" style="background:#0284c7;" onclick="downloadSlipPDF();">
             <i class="fas fa-file-pdf me-1"></i> Download PDF
         </button>
-        <a href="index.php" class="btn-back">
-            <i class="fas fa-arrow-left me-1"></i> Back
-        </a>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
     <script>
     function downloadSlipPDF() {
         var element = document.querySelector('.page');

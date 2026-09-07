@@ -1,6 +1,6 @@
 <?php
 $activePage = 'subscriptions';
-$pageTitle = 'Assign Plan';
+$pageTitle = 'Assign Diet Plan';
 include __DIR__ . '/../includes/header.php';
 
 $error = '';
@@ -61,9 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div id="subMemberResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
             </div>
             <div class="mb-3">
-                <label class="form-label"><i class="fas fa-clipboard-list me-1 text-muted"></i>Plan *</label>
+                <label class="form-label"><i class="fas fa-utensils me-1 text-muted"></i>Diet Plan *</label>
                 <select name="plan_id" class="form-select" required>
-                    <option value="">-- Select Plan --</option>
+                    <option value="">-- Select Diet Plan --</option>
                     <?php foreach ($plans as $p): ?>
                         <option value="<?php echo $p['id']; ?>" <?php echo ($_POST['plan_id'] ?? '') == $p['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($p['name']) . ' - ' . $p['duration_days'] . ' days (Rs.' . number_format($p['price'], 2) . ')'; ?></option>
                     <?php endforeach; ?>
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="date" name="start_date" class="form-control" value="<?php echo htmlspecialchars($_POST['start_date'] ?? date('Y-m-d')); ?>" required>
             </div>
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Assign Plan</button>
+                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Assign Diet Plan</button>
                 <a href="index.php" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

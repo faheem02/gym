@@ -72,7 +72,22 @@ $inactiveCount = $totalMembers - $activeCount;
                         <td class="fw-semibold"><?php echo htmlspecialchars($m['name']); ?></td>
                         <td><?php echo htmlspecialchars($m['phone']); ?></td>
                         <td><?php echo !empty($m['gender']) ? ucfirst(htmlspecialchars($m['gender'])) : '<span class="text-muted">-</span>'; ?></td>
-                        <td><?php echo !empty($m['membership_type']) ? '<span class="badge text-bg-info">' . htmlspecialchars($m['membership_type']) . '</span>' : '<span class="text-muted">-</span>'; ?></td>
+                        <td>
+                            <?php 
+                            $at = $m['access_type'] ?? 'gym';
+                            $atClass = $at === 'kids_play' ? 'text-bg-success' : ($at === 'both' ? 'text-bg-warning' : 'text-bg-primary');
+                            $atIcon = $at === 'kids_play' ? 'fa-child' : ($at === 'both' ? 'fa-users' : 'fa-dumbbell');
+                            $atLabel = $at === 'kids_play' ? 'Kids' : ($at === 'both' ? 'Gym+Kids' : 'Gym');
+                            ?>
+                            <span class="badge <?php echo $atClass; ?> me-1"><i class="fas <?php echo $atIcon; ?> me-1"></i><?php echo $atLabel; ?></span>
+                            <?php echo !empty($m['membership_type']) ? '<span class="badge text-bg-light border text-dark">' . htmlspecialchars($m['membership_type']) . '</span>' : ''; ?>
+                            <?php if ((float)($m['monthly_fee'] ?? 0) > 0): ?>
+                                <div class="small fw-semibold text-primary mt-1"><i class="fas fa-calendar-check me-1"></i>Rs. <?php echo number_format((float)$m['monthly_fee'], 0); ?>/mo</div>
+                            <?php endif; ?>
+                            <?php if ((float)($m['kids_fee'] ?? 0) > 0): ?>
+                                <div class="small fw-semibold text-success mt-1"><i class="fas fa-child me-1"></i>Rs. <?php echo number_format((float)$m['kids_fee'], 0); ?>/mo</div>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo date('d M Y', strtotime($m['join_date'])); ?></td>
                         <td>
                             <?php if (!empty($m['trainer_name'])): ?>
@@ -319,7 +334,7 @@ $inactiveCount = $totalMembers - $activeCount;
 }
 </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 <script>
 function downloadMemberListPDF() {
     var printSection = document.getElementById('printSection');

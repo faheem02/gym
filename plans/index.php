@@ -1,12 +1,12 @@
 <?php
 $activePage = 'plans';
-$pageTitle = 'Membership Plans';
+$pageTitle = 'Diet Plans';
 include __DIR__ . '/../includes/header.php';
 
 $msg = $_GET['msg'] ?? '';
-if ($msg === 'added') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Plan added successfully.</div>';
-if ($msg === 'updated') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Plan updated successfully.</div>';
-if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Plan deleted.</div>';
+if ($msg === 'added') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Diet plan added successfully.</div>';
+if ($msg === 'updated') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Diet plan updated successfully.</div>';
+if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Diet plan deleted.</div>';
 
 $plans = $pdo->query('SELECT * FROM plans ORDER BY is_popular DESC, price ASC')->fetchAll();
 
@@ -37,13 +37,13 @@ function pricePerMonth($price, $days) {
 <!-- Pricing Cards Section -->
 <div class="pricing-section">
     <div class="section-heading">
-        <i class="fas fa-tags"></i> Active Membership Plans
+        <i class="fas fa-utensils"></i> Active Diet Plans
     </div>
     <div class="pricing-cards">
         <?php if (empty($plans)): ?>
             <div class="col-12 text-center text-muted py-5">
                 <i class="fas fa-clipboard-list" style="font-size:3rem;opacity:0.2;"></i>
-                <p class="mt-2">No plans created yet.</p>
+                <p class="mt-2">No diet plans created yet.</p>
             </div>
         <?php endif; ?>
         <?php foreach ($plans as $p): ?>
@@ -91,7 +91,7 @@ function pricePerMonth($price, $days) {
 
                 <div class="plan-footer">
                     <a href="edit.php?id=<?php echo $p['id']; ?>" class="btn btn-outline-dark">
-                        <i class="fas fa-pen me-1"></i>Edit Plan
+                        <i class="fas fa-pen me-1"></i>Edit Diet Plan
                     </a>
                 </div>
             </div>
@@ -103,15 +103,15 @@ function pricePerMonth($price, $days) {
 <div class="card">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="fw-bold mb-0"><i class="fas fa-cog text-muted me-2"></i>Plan Management</h6>
-            <a href="add.php" class="btn btn-warning fw-bold btn-sm"><i class="fas fa-plus me-1"></i>Add New Plan</a>
+            <h6 class="fw-bold mb-0"><i class="fas fa-cog text-muted me-2"></i>Diet Plan Management</h6>
+            <a href="add.php" class="btn btn-warning fw-bold btn-sm"><i class="fas fa-plus me-1"></i>Add New Diet Plan</a>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Plan Name</th>
+                        <th>Diet Plan Name</th>
                         <th>Duration</th>
                         <th>Price</th>
                         <th>Per Month</th>
@@ -123,7 +123,7 @@ function pricePerMonth($price, $days) {
                 </thead>
                 <tbody>
                     <?php if (empty($plans)): ?>
-                        <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-clipboard me-1"></i>No plans found.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-clipboard me-1"></i>No diet plans found.</td></tr>
                     <?php endif; ?>
                     <?php foreach ($plans as $p): ?>
                         <?php $perMonth = pricePerMonth($p['price'], $p['duration_days']); ?>
@@ -162,7 +162,7 @@ function pricePerMonth($price, $days) {
                             </td>
                             <td class="text-end">
                                 <a href="edit.php?id=<?php echo $p['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fas fa-pen"></i></a>
-                                <a href="delete.php?id=<?php echo $p['id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this plan?');"><i class="fas fa-trash"></i></a>
+                                 <a href="delete.php?id=<?php echo $p['id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this diet plan?');"><i class="fas fa-trash"></i></a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

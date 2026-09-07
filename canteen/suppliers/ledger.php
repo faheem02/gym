@@ -550,7 +550,7 @@ foreach ($filtered as $f) {
 }
 </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 <script>
 function downloadSupplierLedgerPDF() {
     var printSection = document.getElementById('printSection');

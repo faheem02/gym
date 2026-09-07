@@ -12,8 +12,8 @@ $activePage = $activePage ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo htmlspecialchars(GYM_NAME); ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="/gym/assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/gym/assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="/gym/assets/style.css">
 </head>
 <body>
@@ -36,12 +36,12 @@ $activePage = $activePage ?? '';
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo in_array($activePage, ['members','member_payments','member_ledger']) ? 'active' : ''; ?> sidebar-dropdown-toggle" href="#memberMenu" data-bs-toggle="collapse" role="button" aria-expanded="<?php echo in_array($activePage, ['members','member_payments','member_ledger']) ? 'true' : 'false'; ?>">
+                    <a class="nav-link <?php echo in_array($activePage, ['members','member_payments','member_fee_due','member_ledger']) ? 'active' : ''; ?> sidebar-dropdown-toggle" href="#memberMenu" data-bs-toggle="collapse" role="button" aria-expanded="<?php echo in_array($activePage, ['members','member_payments','member_fee_due','member_ledger']) ? 'true' : 'false'; ?>">
                         <i class="fas fa-users"></i>
                         <span>Members</span>
                         <i class="fas fa-chevron-down ms-auto small"></i>
                     </a>
-                    <div class="collapse <?php echo in_array($activePage, ['members','member_payments','member_ledger']) ? 'show' : ''; ?>" id="memberMenu">
+                    <div class="collapse <?php echo in_array($activePage, ['members','member_payments','member_fee_due','member_ledger']) ? 'show' : ''; ?>" id="memberMenu">
                         <ul class="nav flex-column ms-3">
                             <li class="nav-item">
                                 <a class="nav-link <?php echo $activePage === 'members' ? 'active' : ''; ?>" href="/gym/members/">
@@ -54,6 +54,11 @@ $activePage = $activePage ?? '';
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link <?php echo $activePage === 'member_fee_due' ? 'active' : ''; ?>" href="/gym/members/fee_due.php">
+                                    <i class="fas fa-calendar-exclamation me-1"></i><span>Fee Due Report</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link <?php echo $activePage === 'member_ledger' ? 'active' : ''; ?>" href="/gym/members/ledger.php">
                                     <i class="fas fa-book me-1"></i><span>Member Ledger</span>
                                 </a>
@@ -63,8 +68,8 @@ $activePage = $activePage ?? '';
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $activePage === 'plans' ? 'active' : ''; ?>" href="/gym/plans/">
-                        <i class="fas fa-clipboard-list"></i>
-                        <span>Plans</span>
+                        <i class="fas fa-utensils"></i>
+                        <span>Diet Plans</span>
                     </a>
                 </li>
                 <li class="nav-item">

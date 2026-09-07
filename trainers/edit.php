@@ -21,12 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $specialty = trim($_POST['specialty'] ?? '');
+    $fee = (float)($_POST['fee'] ?? 0);
 
     if ($name === '' || $phone === '') {
         $error = 'Name and phone are required.';
     } else {
-        $stmt = $pdo->prepare('UPDATE trainers SET name = ?, phone = ?, email = ?, specialty = ? WHERE id = ?');
-        $stmt->execute([$name, $phone, $email ?: null, $specialty ?: null, $id]);
+        $stmt = $pdo->prepare('UPDATE trainers SET name = ?, phone = ?, email = ?, specialty = ?, fee = ? WHERE id = ?');
+        $stmt->execute([$name, $phone, $email ?: null, $specialty ?: null, $fee, $id]);
         header('Location: /gym/trainers/index.php?msg=updated');
         exit;
     }
@@ -55,6 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="mb-3">
                 <label class="form-label"><i class="fas fa-star me-1 text-muted"></i>Specialty</label>
                 <input type="text" name="specialty" class="form-control" value="<?php echo htmlspecialchars($trainer['specialty'] ?? ''); ?>">
+            </div>
+            <div class="mb-3">
+                <label class="form-label"><i class="fas fa-money-bill-wave me-1 text-muted"></i>Trainer Fee (Rs.)</label>
+                <div class="input-group">
+                    <span class="input-group-text">Rs.</span>
+                    <input type="number" step="0.01" min="0" name="fee" class="form-control" placeholder="0.00" value="<?php echo htmlspecialchars($trainer['fee'] ?? '0.00'); ?>">
+                </div>
             </div>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Update Trainer</button>

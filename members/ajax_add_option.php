@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $category = $_POST['category'] ?? '';
 $value = trim($_POST['value'] ?? '');
 
-if (!in_array($category, ['membership_type', 'area_of_interest']) || $value === '') {
+if (!in_array($category, ['membership_type', 'area_of_interest', 'fitness_goal']) || $value === '') {
     echo json_encode(['success' => false, 'error' => 'Invalid category or empty value.']);
     exit;
 }

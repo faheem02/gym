@@ -12,6 +12,7 @@ if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fa
 if ($msg === 'trainer') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Trainer assigned successfully.</div>';
 
 $search = trim($_GET['q'] ?? '');
+$filter = $_GET['filter'] ?? 'all';
 
 $sql = "SELECT * FROM (
     SELECT s.id AS sub_id, s.start_date, s.end_date, s.status,
@@ -32,22 +33,45 @@ $sql = "SELECT * FROM (
     WHERE NOT EXISTS (SELECT 1 FROM subscriptions s2 WHERE s2.member_id = m.id)
 ) x";
 $params = [];
+
+$conditions = [];
 if ($search !== '') {
-    $sql .= " WHERE x.member_name LIKE ? OR x.phone LIKE ? OR x.plan_name LIKE ? OR x.trainer_name LIKE ?";
+    $conditions[] = "(x.member_name LIKE ? OR x.phone LIKE ? OR x.plan_name LIKE ? OR x.trainer_name LIKE ?)";
     $like = '%' . $search . '%';
-    $params = [$like, $like, $like, $like];
+    $params = array_merge($params, [$like, $like, $like, $like]);
 }
+
+if ($filter === 'active') {
+    $conditions[] = "(x.status = 'active')";
+} elseif ($filter === 'expired') {
+    $conditions[] = "(x.status = 'expired')";
+} elseif ($filter === 'no_plan') {
+    $conditions[] = "(x.status = 'no_plan')";
+} elseif ($filter === 'expiring') {
+    $conditions[] = "(x.status = 'active' AND x.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY))";
+}
+
+if (!empty($conditions)) {
+    $sql .= " WHERE " . implode(' AND ', $conditions);
+}
+
 $sql .= " ORDER BY x.sub_id DESC, x.member_name ASC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $rows = $stmt->fetchAll();
+
+// Counts for filter badges
+$countActive   = (int)$pdo->query("SELECT COUNT(*) FROM subscriptions WHERE status = 'active'")->fetchColumn();
+$countExpired  = (int)$pdo->query("SELECT COUNT(*) FROM subscriptions WHERE status = 'expired'")->fetchColumn();
+$countNoPlan   = (int)$pdo->query("SELECT COUNT(*) FROM members m LEFT JOIN subscriptions s ON s.member_id = m.id WHERE s.id IS NULL")->fetchColumn();
+$countExpiring = (int)$pdo->query("SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
 ?>
 
 <div class="page-header">
     <div></div>
     <div class="d-flex gap-2">
         <a href="trainer.php" class="btn btn-dark fw-bold"><i class="fas fa-user-tie me-1"></i>Assign Trainer</a>
-        <a href="add.php" class="btn btn-warning fw-bold"><i class="fas fa-plus me-1"></i>Assign Plan</a>
+        <a href="add.php" class="btn btn-warning fw-bold"><i class="fas fa-plus me-1"></i>Assign Diet Plan</a>
     </div>
 </div>
 
@@ -58,6 +82,37 @@ $rows = $stmt->fetchAll();
     </form>
 </div>
 
+<!-- Filter Tabs -->
+<div class="d-flex flex-wrap gap-2 mb-3 no-print">
+    <?php
+    $tabs = [
+        'all'      => ['label' => 'All',            'count' => $countActive + $countExpired + $countNoPlan, 'icon' => 'fa-list'],
+        'active'   => ['label' => 'Active',         'count' => $countActive,     'icon' => 'fa-check-circle'],
+        'expiring' => ['label' => 'Expiring Soon',  'count' => $countExpiring,   'icon' => 'fa-hourglass-half'],
+        'expired'  => ['label' => 'Expired',        'count' => $countExpired,    'icon' => 'fa-exclamation-triangle'],
+        'no_plan'  => ['label' => 'No Diet Plan',   'count' => $countNoPlan,     'icon' => 'fa-times-circle'],
+    ];
+    foreach ($tabs as $key => $tab):
+        $isActive = ($filter === $key);
+        $btnClass = $isActive
+            ? 'btn btn-sm fw-bold px-3 text-white border-0'
+            : 'btn btn-sm fw-bold px-3';
+        $btnBg = '';
+        if ($isActive) {
+            $btnBg = $key === 'expired' ? 'background:#dc3545;'
+                : ($key === 'expiring' ? 'background:#f59e0b;'
+                : ($key === 'no_plan' ? 'background:#6c757d;'
+                : ($key === 'active' ? 'background:#198754;' : 'background:#212529;')));
+        }
+        $href = 'index.php?filter=' . $key . ($search !== '' ? '&q=' . urlencode($search) : '');
+        ?>
+        <a href="<?php echo $href; ?>" class="<?php echo $btnClass; ?>" style="<?php echo $btnBg; ?><?php echo $isActive ? '' : 'color:#6b7280;border-color:#d1d5db;'; ?>">
+            <i class="fas <?php echo $tab['icon']; ?> me-1"></i><?php echo $tab['label']; ?>
+            <span class="badge <?php echo $isActive ? 'bg-light text-dark' : 'bg-secondary-subtle text-secondary'; ?> ms-1"><?php echo $tab['count']; ?></span>
+        </a>
+    <?php endforeach; ?>
+</div>
+
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -65,7 +120,7 @@ $rows = $stmt->fetchAll();
                 <tr>
                     <th>#</th>
                     <th>Member</th>
-                    <th>Plan</th>
+                    <th>Diet Plan</th>
                     <th>Trainer</th>
                     <th>Start Date</th>
                     <th>End Date</th>
@@ -81,9 +136,12 @@ $rows = $stmt->fetchAll();
                 <?php foreach ($rows as $s): ?>
                     <?php
                     $isNoPlan = ($s['status'] === 'no_plan');
-                    $daysLeft = $s['end_date'] ? (int)ceil((strtotime($s['end_date']) - strtotime(date('Y-m-d'))) / 86400) : null;
+                    $today = strtotime(date('Y-m-d'));
+                    $daysLeft = $s['end_date'] ? (int)ceil((strtotime($s['end_date']) - $today) / 86400) : null;
+                    $isExpired = (!$isNoPlan && $s['status'] === 'expired');
+                    $rowClass = $isNoPlan ? 'table-light' : ($isExpired ? 'table-danger' : '');
                     ?>
-                    <tr <?php if ($isNoPlan) echo 'class="table-light"'; ?>>
+                    <tr class="<?php echo $rowClass; ?>">
                         <td><?php echo $s['sub_id'] ?? '-'; ?></td>
                         <td>
                             <div class="fw-semibold"><?php echo htmlspecialchars($s['member_name']); ?></div>
@@ -91,7 +149,7 @@ $rows = $stmt->fetchAll();
                         </td>
                         <td>
                             <?php if ($isNoPlan): ?>
-                                <span class="badge text-bg-secondary">No Plan</span>
+                                <span class="badge text-bg-secondary">No Diet Plan</span>
                             <?php else: ?>
                                 <span class="badge text-bg-dark"><?php echo htmlspecialchars($s['plan_name']); ?></span>
                             <?php endif; ?>
@@ -110,28 +168,39 @@ $rows = $stmt->fetchAll();
                                 <span class="text-muted">-</span>
                             <?php elseif ($s['status'] === 'active'): ?>
                                 <?php if ($daysLeft <= 7): ?>
-                                    <span class="badge text-bg-warning"><i class="fas fa-clock me-1"></i><?php echo $daysLeft; ?> days</span>
+                                    <span class="badge text-bg-warning"><i class="fas fa-clock me-1"></i><?php echo $daysLeft; ?> days left</span>
                                 <?php else: ?>
                                     <span class="badge text-bg-success"><i class="fas fa-clock me-1"></i><?php echo $daysLeft; ?> days</span>
                                 <?php endif; ?>
+                            <?php elseif ($s['status'] === 'expired'): ?>
+                                <?php $overdueDays = abs($daysLeft); ?>
+                                <span class="badge text-bg-danger"><i class="fas fa-exclamation-circle me-1"></i><?php echo $overdueDays; ?> days overdue</span>
                             <?php else: ?>
                                 <span class="text-muted">-</span>
                             <?php endif; ?>
                         </td>
                         <td>
                             <?php if ($isNoPlan): ?>
-                                <span class="badge text-bg-secondary">No Plan</span>
+                                <span class="badge text-bg-secondary">No Diet Plan</span>
+                            <?php elseif ($s['status'] === 'active'): ?>
+                                <?php if ($daysLeft <= 7): ?>
+                                    <span class="badge text-bg-warning">Expiring Soon</span>
+                                <?php else: ?>
+                                    <span class="badge badge-active">Active</span>
+                                <?php endif; ?>
                             <?php else: ?>
-                                <span class="badge <?php echo $s['status'] === 'active' ? 'badge-active' : 'badge-expired'; ?>">
-                                    <?php echo ucfirst($s['status']); ?>
-                                </span>
+                                <span class="badge badge-expired"><i class="fas fa-times-circle me-1"></i>Expired</span>
                             <?php endif; ?>
                         </td>
                         <td class="text-end">
                             <?php if ($isNoPlan): ?>
-                                <a href="add.php" class="btn btn-sm btn-outline-warning" title="Assign Plan"><i class="fas fa-plus"></i></a>
+                                <a href="add.php" class="btn btn-sm btn-outline-warning" title="Assign Diet Plan"><i class="fas fa-plus"></i></a>
                             <?php else: ?>
-                                <?php if ($s['status'] === 'active'): ?>
+                                <?php if ($isExpired): ?>
+                                    <a href="renew.php?id=<?php echo $s['sub_id']; ?>" class="btn btn-sm btn-success fw-bold" title="Renew this expired subscription">
+                                        <i class="fas fa-sync-alt me-1"></i>Renew
+                                    </a>
+                                <?php elseif ($s['status'] === 'active'): ?>
                                     <a href="renew.php?id=<?php echo $s['sub_id']; ?>" class="btn btn-sm btn-outline-success" title="Renew"><i class="fas fa-sync-alt"></i></a>
                                 <?php endif; ?>
                                 <a href="delete.php?id=<?php echo $s['sub_id']; ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this subscription?');"><i class="fas fa-trash"></i></a>

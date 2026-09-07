@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="col-md-6 mb-3">
                     <label class="form-label"><i class="fas fa-cubes me-1 text-muted"></i>Current Stock</label>
                     <div class="form-control bg-light fw-bold"><?php echo rtrim(rtrim(number_format($product['stock_qty'], 2), '0'), '.'); ?> <?php echo htmlspecialchars($product['unit']); ?></div>
-                    <small class="text-muted"><i class="fas fa-lock me-1"></i>Stock sirf Purchase ya Stock Adjustment se change hota hai</small>
+                    <small class="text-muted"><i class="fas fa-lock me-1"></i>Stock is changed only through Purchase or Stock Adjustment</small>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label"><i class="fas fa-exclamation-triangle me-1 text-muted"></i>Min Stock Alert</label>

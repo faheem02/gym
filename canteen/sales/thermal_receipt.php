@@ -58,9 +58,7 @@ $autoprint = !empty($_GET['autoprint']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Receipt <?php echo htmlspecialchars($sale['receipt_no']); ?> - <?php echo htmlspecialchars(GYM_NAME); ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/gym/assets/vendor/fontawesome/css/all.min.css">
     <style>
         :root {
             --receipt-width: 80mm;
@@ -71,7 +69,7 @@ $autoprint = !empty($_GET['autoprint']);
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Courier Prime', Courier, monospace, sans-serif;
+            font-family: 'Courier New', 'Consolas', monospace, sans-serif;
             background: #e5e7eb;
             color: #111;
             padding: 30px 15px;
@@ -98,7 +96,7 @@ $autoprint = !empty($_GET['autoprint']);
             padding: 8px 16px;
             font-size: 13px;
             font-weight: 600;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Segoe UI', -apple-system, 'Inter', sans-serif;
             border-radius: 6px;
             cursor: pointer;
             text-decoration: none;
@@ -248,7 +246,7 @@ $autoprint = !empty($_GET['autoprint']);
         .barcode-wrap {
             text-align: center;
             margin: 10px 0 6px;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Segoe UI', -apple-system, 'Inter', sans-serif;
             font-weight: 700;
             letter-spacing: 2px;
             font-size: 12px;
@@ -296,9 +294,6 @@ $autoprint = !empty($_GET['autoprint']);
         </button>
         <a href="/gym/canteen/pos/index.php" class="btn-act btn-act-pos">
             <i class="fas fa-plus"></i> New Sale
-        </a>
-        <a href="/gym/canteen/sales/" class="btn-act btn-act-back">
-            <i class="fas fa-list"></i> All Sales
         </a>
     </div>
 
@@ -429,7 +424,7 @@ $autoprint = !empty($_GET['autoprint']);
 </div>
 
 <!-- Include html2pdf.js CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 <script>
 function downloadThermalPDF() {
     var element = document.getElementById('thermalReceiptArea');

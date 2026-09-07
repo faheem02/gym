@@ -1,6 +1,6 @@
 <?php
 $activePage = 'plans';
-$pageTitle = 'Edit Membership Plan';
+$pageTitle = 'Edit Diet Plan';
 include __DIR__ . '/../includes/header.php';
 
 $id = (int)($_GET['id'] ?? 0);
@@ -9,7 +9,7 @@ $stmt->execute([$id]);
 $plan = $stmt->fetch();
 
 if (!$plan) {
-    echo '<div class="alert alert-warning">Plan not found. <a href="index.php">Back to plans</a></div>';
+    echo '<div class="alert alert-warning">Diet plan not found. <a href="index.php">Back to diet plans</a></div>';
     include __DIR__ . '/../includes/footer.php';
     exit;
 }
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($day_pass_discount > 100) $day_pass_discount = 100;
 
     if ($name === '' || $duration_days <= 0 || $price === '' || !is_numeric($price)) {
-        $error = 'Plan name, a valid duration and price are required.';
+        $error = 'Diet plan name, a valid duration and price are required.';
     } else {
         $stmt = $pdo->prepare('UPDATE plans SET name = ?, duration_days = ?, price = ?, description = ?, features = ?, is_popular = ?, day_pass_discount = ?, status = ? WHERE id = ?');
         $stmt->execute([$name, $duration_days, $price, $description ?: null, $features ?: null, $is_popular, $day_pass_discount, $status, $id]);
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="card form-card" style="max-width: 720px;">
     <div class="card-body">
-        <h5 class="mb-4"><i class="fas fa-edit text-warning me-2"></i>Edit Plan: <?php echo htmlspecialchars($plan['name']); ?></h5>
+        <h5 class="mb-4"><i class="fas fa-edit text-warning me-2"></i>Edit Diet Plan: <?php echo htmlspecialchars($plan['name']); ?></h5>
 
         <?php if ($error): ?>
             <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="POST" action="">
             <div class="row">
                 <div class="col-md-8 mb-3">
-                    <label class="form-label"><i class="fas fa-tag me-1 text-muted"></i>Plan Name *</label>
+                    <label class="form-label"><i class="fas fa-tag me-1 text-muted"></i>Diet Plan Name *</label>
                     <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($plan['name']); ?>" required>
                 </div>
                 <div class="col-md-4 mb-3">
@@ -89,10 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" name="is_popular" value="1" id="popularCheck" <?php echo $plan['is_popular'] ? 'checked' : ''; ?>>
                     <label class="form-check-label fw-semibold" for="popularCheck">
-                        <i class="fas fa-star text-warning me-1"></i>Mark as Popular Plan
+                        <i class="fas fa-star text-warning me-1"></i>Mark as Popular Diet Plan
                     </label>
                 </div>
-                <small class="text-muted">Popular plans are highlighted with a special badge on the pricing cards</small>
+                <small class="text-muted">Popular diet plans are highlighted with a special badge on the pricing cards</small>
             </div>
 
             <div class="section-label mb-3">
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Update Plan</button>
+                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Update Diet Plan</button>
                 <a href="index.php" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

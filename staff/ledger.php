@@ -222,10 +222,6 @@ $stmt->execute([$id, $thisMonth]);
 $paidThisMonth = (float)$stmt->fetch()['paid'];
 ?>
 
-<div class="mb-4">
-    <a href="ledger.php" class="btn btn-warning fw-bold" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-arrow-left me-1"></i>Back</a>
-</div>
-
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="card stat-card">
@@ -589,7 +585,7 @@ $paidThisMonth = (float)$stmt->fetch()['paid'];
 }
 </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 <script>
 function downloadStaffLedgerPDF() {
     var printSection = document.getElementById('printSection');

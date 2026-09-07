@@ -148,18 +148,91 @@ $dateTo = $_GET['date_to'] ?? '';
 
 $transactions = [];
 
-// Subscription assignments (debits - plan price)
+// One-time registration fee (debit)
+if ((float)($member['registration_fee'] ?? 0) > 0) {
+    $transactions[] = [
+        'date' => $member['join_date'],
+        'type' => 'registration_fee',
+        'description' => 'Admission / Registration Fee (One-Time)',
+        'debit' => (float)$member['registration_fee'],
+        'credit' => 0,
+        'time' => $member['created_at'],
+    ];
+}
+
+// Trainer fee (debit)
+if ((float)($member['trainer_fee'] ?? 0) > 0) {
+    $transactions[] = [
+        'date' => $member['join_date'],
+        'type' => 'trainer_fee',
+        'description' => 'Trainer Fee',
+        'debit' => (float)$member['trainer_fee'],
+        'credit' => 0,
+        'time' => $member['created_at'],
+    ];
+}
+
+// Kids play area fee (debit)
+if ((float)($member['kids_fee'] ?? 0) > 0) {
+    $transactions[] = [
+        'date' => $member['join_date'],
+        'type' => 'kids_fee',
+        'description' => 'Kids Play Area Membership Fee',
+        'debit' => (float)$member['kids_fee'],
+        'credit' => 0,
+        'time' => $member['created_at'],
+    ];
+}
+
+// Discount concession (credit)
+if ((float)($member['discount'] ?? 0) > 0) {
+    $transactions[] = [
+        'date' => $member['join_date'],
+        'type' => 'discount',
+        'description' => 'Discount Concession',
+        'debit' => 0,
+        'credit' => (float)$member['discount'],
+        'time' => $member['created_at'],
+    ];
+}
+
+// Gym monthly fee - recurring debit for EACH month from join month to the current month
+// This makes an unpaid member's balance climb every month automatically.
+$monthlyFee = (float)($member['monthly_fee'] ?? 0);
+if ($monthlyFee > 0) {
+    $start = new DateTime($member['join_date']);
+    $start->modify('first day of this month');
+    $end = new DateTime('first day of this month'); // current month
+    $cursor = clone $start;
+    while ($cursor <= $end) {
+        $transactions[] = [
+            'date' => $cursor->format('Y-m-d'),
+            'type' => 'monthly_fee',
+            'description' => 'Gym Monthly Fee - ' . $cursor->format('F Y'),
+            'debit' => $monthlyFee,
+            'credit' => 0,
+            'time' => $member['created_at'],
+        ];
+        $cursor->modify('+1 month');
+    }
+}
+
+// Subscription assignments (debits - plan price if no separate monthly fee)
+$hasMonthlyFee = (float)($member['monthly_fee'] ?? 0) > 0;
 $stmt = $pdo->prepare("SELECT s.id, s.start_date, s.end_date, s.created_at, p.name AS plan_name, p.price FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.member_id = ? ORDER BY s.start_date DESC, s.id DESC");
 $stmt->execute([$id]);
 foreach ($stmt->fetchAll() as $s) {
-    $transactions[] = [
-        'date' => $s['start_date'],
-        'type' => 'subscription',
-        'description' => $s['plan_name'] . ' Plan (' . date('d M Y', strtotime($s['start_date'])) . ' - ' . date('d M Y', strtotime($s['end_date'])) . ')',
-        'debit' => (float)$s['price'],
-        'credit' => 0,
-        'time' => $s['created_at'],
-    ];
+    $planDebit = $hasMonthlyFee ? 0.00 : (float)$s['price'];
+    if ($planDebit > 0) {
+        $transactions[] = [
+            'date' => $s['start_date'],
+            'type' => 'subscription',
+            'description' => $s['plan_name'] . ' Plan (' . date('d M Y', strtotime($s['start_date'])) . ' - ' . date('d M Y', strtotime($s['end_date'])) . ')',
+            'debit' => $planDebit,
+            'credit' => 0,
+            'time' => $s['created_at'],
+        ];
+    }
 }
 
 // Payments received (credits)
@@ -579,7 +652,7 @@ $activeSub = $stmt->fetch();
 }
 </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 <script>
 function downloadMemberLedgerPDF() {
     var printSection = document.getElementById('printSection');

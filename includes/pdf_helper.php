@@ -1,5 +1,5 @@
-<!-- html2pdf.js CDN for client-side PDF export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- html2pdf.js local copy for client-side PDF export -->
+<script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
 <script>
 function exportElementToPDF(elementId, filename, optOverrides) {
     var element = document.getElementById(elementId);

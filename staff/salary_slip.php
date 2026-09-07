@@ -41,10 +41,9 @@ $balance = $totalEarned - $totalPaid;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salary Slip - <?php echo htmlspecialchars($payment['staff_name']); ?></title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: #1a1a2e; padding: 30px; }
+        body { font-family: 'Segoe UI', -apple-system, 'Inter', sans-serif; background: #f0f2f5; color: #1a1a2e; padding: 30px; }
         .slip { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
 
         .slip-header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; text-align: center; padding: 28px 20px 22px; }
@@ -161,14 +160,13 @@ $balance = $totalEarned - $totalPaid;
         </div>
     </div>
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/gym/assets/vendor/fontawesome/css/all.min.css">
     <div class="actions" style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
         <button class="btn-print" onclick="window.print();"><i class="fas fa-print me-1"></i>Print Salary Slip</button>
         <button class="btn-print" style="background:#0284c7;" onclick="downloadSalarySlipPDF();"><i class="fas fa-file-pdf me-1"></i>Download PDF</button>
-        <a href="/gym/staff/salaries.php" class="btn-print" style="background:#fff; color:#333; border:1px solid #ccc; text-decoration:none;"><i class="fas fa-arrow-left me-1"></i>Back</a>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="/gym/assets/vendor/html2pdf/html2pdf.bundle.min.js"></script>
     <script>
     function downloadSalarySlipPDF() {
         var element = document.querySelector('.slip');

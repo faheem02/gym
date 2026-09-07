@@ -46,7 +46,13 @@ $totalVisits = (int)$stmt->fetch()['total'];
 $stmt = $pdo->prepare("SELECT COALESCE(SUM(p.price),0) AS total FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.member_id = ?");
 $stmt->execute([$id]);
 $totalPlanValue = (float)$stmt->fetch()['total'];
-$balance = $totalPlanValue - $totalPaidAll;
+
+$regFee = (float)($member['registration_fee'] ?? 0);
+$kidsFee = (float)($member['kids_fee'] ?? 0);
+$trainerFee = (float)($member['trainer_fee'] ?? 0);
+$discount = (float)($member['discount'] ?? 0);
+$totalCharges = $totalPlanValue + $regFee + $kidsFee + $trainerFee - $discount;
+$balance = max(0, $totalCharges - $totalPaidAll);
 
 $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86400) : 0;
 ?>
@@ -113,10 +119,19 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
                     <div>
                         <h5 class="fw-bold mb-1"><?php echo htmlspecialchars($member['name']); ?></h5>
                         <span class="badge <?php echo $member['status'] === 'active' ? 'badge-active' : 'badge-inactive'; ?>"><?php echo ucfirst($member['status']); ?></span>
+                        <?php 
+                        $at = $member['access_type'] ?? 'gym';
+                        $atBadge = $at === 'kids_play' ? 'text-bg-success' : ($at === 'both' ? 'text-bg-warning' : 'text-bg-primary');
+                        $atLabel = $at === 'kids_play' ? 'Kids Play Area' : ($at === 'both' ? 'Gym + Kids' : 'Gym Access');
+                        ?>
+                        <span class="badge <?php echo $atBadge; ?> ms-1"><?php echo $atLabel; ?></span>
                         <span class="badge bg-dark ms-1">#<?php echo $member['id']; ?></span>
                     </div>
                 </div>
                 <ul class="list-unstyled mb-0">
+                    <?php if (!empty($member['guardian_name'])): ?>
+                    <li class="mb-3"><i class="fas fa-user-shield text-muted me-2"></i><span class="text-muted">Guardian / Parent:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['guardian_name']); ?></span></li>
+                    <?php endif; ?>
                     <li class="mb-3"><i class="fas fa-phone text-muted me-2"></i><span class="text-muted">Phone:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['phone']); ?></span></li>
                     <li class="mb-3"><i class="fas fa-envelope text-muted me-2"></i><span class="text-muted">Email:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['email'] ?? '-'); ?></span></li>
                     <?php if (!empty($member['date_of_birth'])): ?>
@@ -129,10 +144,25 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
                     <li class="mb-3"><i class="fas fa-id-card text-muted me-2"></i><span class="text-muted">Membership:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['membership_type']); ?></span></li>
                     <?php endif; ?>
                     <?php if (!empty($member['area_of_interest'])): ?>
-                    <li class="mb-3"><i class="fas fa-heart text-muted me-2"></i><span class="text-muted">Interests:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['area_of_interest']); ?></span></li>
+                    <li class="mb-3"><i class="fas fa-bullseye text-danger me-2"></i><span class="text-muted">Fitness Goals:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['area_of_interest']); ?></span></li>
                     <?php endif; ?>
                     <li class="mb-3"><i class="fas fa-calendar text-muted me-2"></i><span class="text-muted">Join Date:</span> <span class="fw-semibold"><?php echo date('d M Y', strtotime($member['join_date'])); ?></span></li>
-                    <li class="mb-0"><i class="fas fa-user-tie text-muted me-2"></i><span class="text-muted">Trainer:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['trainer_name'] ?? 'No Trainer Assigned'); ?></span><?php if (!empty($member['trainer_phone'])): ?> <small class="text-muted">(<?php echo htmlspecialchars($member['trainer_phone']); ?>)</small><?php endif; ?></li>
+                    <?php if (!empty($member['trainer_name'])): ?>
+                    <li class="mb-3"><i class="fas fa-user-tie text-muted me-2"></i><span class="text-muted">Trainer:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['trainer_name']); ?></span><?php if (!empty($member['trainer_phone'])): ?> <small class="text-muted">(<?php echo htmlspecialchars($member['trainer_phone']); ?>)</small><?php endif; ?></li>
+                    <?php endif; ?>
+                    <li class="mb-3"><i class="fas fa-file-invoice text-muted me-2"></i><span class="text-muted">Reg. Fee:</span> <span class="fw-semibold">Rs. <?php echo number_format((float)($member['registration_fee'] ?? 0), 2); ?></span></li>
+                    <?php if ((float)($member['monthly_fee'] ?? 0) > 0): ?>
+                    <li class="mb-3"><i class="fas fa-calendar-check text-primary me-2"></i><span class="text-muted">Monthly Gym Fee:</span> <span class="fw-semibold text-primary">Rs. <?php echo number_format((float)$member['monthly_fee'], 2); ?></span></li>
+                    <?php endif; ?>
+                    <?php if ((float)($member['kids_fee'] ?? 0) > 0): ?>
+                    <li class="mb-3"><i class="fas fa-child text-success me-2"></i><span class="text-muted">Kids Area Fee:</span> <span class="fw-semibold text-success">Rs. <?php echo number_format((float)$member['kids_fee'], 2); ?></span></li>
+                    <?php endif; ?>
+                    <?php if ((float)($member['trainer_fee'] ?? 0) > 0): ?>
+                    <li class="mb-3"><i class="fas fa-hand-holding-usd text-muted me-2"></i><span class="text-muted">Trainer Fee:</span> <span class="fw-semibold">Rs. <?php echo number_format((float)$member['trainer_fee'], 2); ?></span></li>
+                    <?php endif; ?>
+                    <?php if ((float)($member['discount'] ?? 0) > 0): ?>
+                    <li class="mb-0"><i class="fas fa-tag text-danger me-2"></i><span class="text-muted">Discount:</span> <span class="fw-semibold text-danger">Rs. <?php echo number_format((float)$member['discount'], 2); ?></span></li>
+                    <?php endif; ?>
                 </ul>
                 <div class="d-flex gap-2 mt-4">
                     <a href="edit.php?id=<?php echo $id; ?>" class="btn btn-sm btn-outline-secondary fw-bold"><i class="fas fa-pen me-1"></i>Edit</a>

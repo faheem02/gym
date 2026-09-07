@@ -1,6 +1,6 @@
 <?php
 $activePage = 'plans';
-$pageTitle = 'Add Membership Plan';
+$pageTitle = 'Add Diet Plan';
 include __DIR__ . '/../includes/header.php';
 
 $error = '';
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($day_pass_discount > 100) $day_pass_discount = 100;
 
     if ($name === '' || $duration_days <= 0 || $price === '' || !is_numeric($price)) {
-        $error = 'Plan name, a valid duration and price are required.';
+        $error = 'Diet plan name, a valid duration and price are required.';
     } else {
         $stmt = $pdo->prepare('INSERT INTO plans (name, duration_days, price, description, features, is_popular, day_pass_discount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([$name, $duration_days, $price, $description ?: null, $features ?: null, $is_popular, $day_pass_discount, $status]);
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="card form-card" style="max-width: 720px;">
     <div class="card-body">
-        <h5 class="mb-4"><i class="fas fa-plus-circle text-warning me-2"></i>Create New Plan</h5>
+        <h5 class="mb-4"><i class="fas fa-plus-circle text-warning me-2"></i>Create New Diet Plan</h5>
 
         <?php if ($error): ?>
             <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
@@ -40,8 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="POST" action="">
             <div class="row">
                 <div class="col-md-8 mb-3">
-                    <label class="form-label"><i class="fas fa-tag me-1 text-muted"></i>Plan Name *</label>
-                    <input type="text" name="name" class="form-control" placeholder="e.g. Monthly Basic, Yearly Premium" required>
+                    <label class="form-label"><i class="fas fa-tag me-1 text-muted"></i>Diet Plan Name *</label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g. Weight Loss Plan, Muscle Gain Plan" required>
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label"><i class="fas fa-toggle-on me-1 text-muted"></i>Status</label>
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="mb-3">
                 <label class="form-label"><i class="fas fa-list-ul me-1 text-muted"></i>Features</label>
-                <textarea name="features" class="form-control" rows="5" placeholder="Enter one feature per line, e.g.:&#10;Gym Equipment Access&#10;Locker Facility&#10;Personal Trainer (4 Sessions)&#10;Diet Plan Included"></textarea>
+                <textarea name="features" class="form-control" rows="5" placeholder="Enter one feature per line, e.g.:&#10;Customized Meal Plan&#10;Daily Calorie Tracking&#10;Protein-Rich Diet&#10;Weekly Consultation"></textarea>
                 <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Enter each feature on a new line</small>
             </div>
 
@@ -78,10 +78,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" name="is_popular" value="1" id="popularCheck">
                     <label class="form-check-label fw-semibold" for="popularCheck">
-                        <i class="fas fa-star text-warning me-1"></i>Mark as Popular Plan
+                        <i class="fas fa-star text-warning me-1"></i>Mark as Popular Diet Plan
                     </label>
                 </div>
-                <small class="text-muted">Popular plans are highlighted with a special badge on the pricing cards</small>
+                <small class="text-muted">Popular diet plans are highlighted with a special badge on the pricing cards</small>
             </div>
 
             <div class="section-label mb-3">
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Save Plan</button>
+                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Save Diet Plan</button>
                 <a href="index.php" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

@@ -87,13 +87,14 @@ $allSpecialties = $pdo->query("SELECT DISTINCT specialty FROM trainers WHERE spe
                     <th>Phone</th>
                     <th>Email</th>
                     <th>Specialty</th>
+                    <th>Fee</th>
                     <th class="text-center">Active Members</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($trainers)): ?>
-                    <tr><td colspan="7" class="text-center text-muted py-5"><i class="fas fa-chalkboard-teacher fa-2x mb-2 text-warning"></i><br>No trainers found.</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-5"><i class="fas fa-chalkboard-teacher fa-2x mb-2 text-warning"></i><br>No trainers found.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($trainers as $t): ?>
                     <tr>
@@ -104,6 +105,7 @@ $allSpecialties = $pdo->query("SELECT DISTINCT specialty FROM trainers WHERE spe
                         <td><i class="fas fa-phone small text-muted me-1"></i><?php echo htmlspecialchars($t['phone']); ?></td>
                         <td><?php echo htmlspecialchars($t['email'] ?? '-'); ?></td>
                         <td><span class="badge text-bg-dark px-2 py-1"><i class="fas fa-star me-1 text-warning"></i><?php echo htmlspecialchars($t['specialty'] ?? 'General'); ?></span></td>
+                        <td><strong class="text-success">Rs. <?php echo number_format((float)($t['fee'] ?? 0), 0); ?></strong></td>
                         <td class="text-center">
                             <?php if ($t['member_count'] > 0): ?>
                                 <a href="members.php?trainer_id=<?php echo $t['id']; ?>" class="badge text-bg-success text-decoration-none px-2 py-1">

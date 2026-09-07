@@ -7,24 +7,33 @@ $msg = $_GET['msg'] ?? '';
 if ($msg === 'payment') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Payment recorded successfully.</div>';
 if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Payment deleted.</div>';
 
-$members = $pdo->query("SELECT id, name, phone FROM members ORDER BY name")->fetchAll();
+$members = $pdo->query("SELECT id, name, phone, registration_fee, monthly_fee, kids_fee, trainer_fee, trainer_id, access_type FROM members ORDER BY name")->fetchAll();
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $member_id = (int)($_POST['member_id'] ?? 0);
-    $amount = (float)($_POST['amount'] ?? 0);
+    $amounts = $_POST['amounts'] ?? [];
     $method = $_POST['payment_method'] ?? 'cash';
-    $payment_for = trim($_POST['payment_for'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
     $pay_date = trim($_POST['payment_date'] ?? date('Y-m-d'));
 
+    $rows = [];
+    foreach ($amounts as $pf => $amt) {
+        $amt = (float)$amt;
+        if ($amt > 0) {
+            $rows[] = ['for' => trim($pf), 'amount' => $amt];
+        }
+    }
+
     if ($member_id <= 0) {
         $error = 'Please select a member.';
-    } elseif ($amount <= 0) {
-        $error = 'Amount must be greater than 0.';
+    } elseif (empty($rows)) {
+        $error = 'Enter an amount for at least one payment type.';
     } else {
         $stmt = $pdo->prepare('INSERT INTO member_payments (member_id, amount, payment_method, payment_for, notes, payment_date) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$member_id, $amount, $method, $payment_for ?: null, $notes ?: null, $pay_date]);
+        foreach ($rows as $row) {
+            $stmt->execute([$member_id, $row['amount'], $method, $row['for'] ?: null, $notes ?: null, $pay_date]);
+        }
         header('Location: /gym/members/payments.php?msg=payment');
         exit;
     }
@@ -68,22 +77,15 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
                         <div id="payMemberResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold"><i class="fas fa-money-bill me-1 text-muted"></i>Amount (Rs.) *</label>
-                        <input type="number" step="1" name="amount" class="form-control form-control-lg" min="1" required placeholder="0" value="<?php echo htmlspecialchars($_POST['amount'] ?? ''); ?>">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold"><i class="fas fa-list me-1 text-muted"></i>Payment For</label>
-                        <select name="payment_for" class="form-select">
-                            <option value="">-- Select --</option>
-                            <?php foreach (['Membership Fee', 'Plan Renewal', 'Registration Fee', 'Personal Training', 'Other'] as $pf): ?>
-                                <option value="<?php echo $pf; ?>" <?php echo ($_POST['payment_for'] ?? '') === $pf ? 'selected' : ''; ?>><?php echo $pf; ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label class="form-label fw-semibold"><i class="fas fa-list me-1 text-muted"></i>Payment For (Enter an amount for each)</label>
+                        <div id="payForRows">
+                            <div class="text-muted small py-2"><i class="fas fa-user me-1"></i>Select a member first &mdash; their payment options will appear here.</div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-credit-card me-1 text-muted"></i>Payment Method</label>
                         <select name="payment_method" class="form-select">
-                            <?php foreach (['cash' => 'Cash', 'card' => 'Card', 'bank_transfer' => 'Bank Transfer', 'easypaisa' => 'EasyPaisa', 'jazzcash' => 'JazzCash'] as $val => $label): ?>
+                            <?php foreach (['cash' => 'Cash', 'bank_transfer' => 'Bank Transfer'] as $val => $label): ?>
                                 <option value="<?php echo $val; ?>" <?php echo ($_POST['payment_method'] ?? 'cash') === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -96,7 +98,7 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
                         <label class="form-label fw-semibold"><i class="fas fa-sticky-note me-1 text-muted"></i>Notes</label>
                         <input type="text" name="notes" class="form-control" placeholder="Optional note" value="<?php echo htmlspecialchars($_POST['notes'] ?? ''); ?>">
                     </div>
-                    <button type="submit" class="btn btn-success btn-lg fw-bold w-100"><i class="fas fa-check-circle me-1"></i>Record Payment</button>
+                    <button type="submit" class="btn btn-success btn-lg fw-bold w-100"><i class="fas fa-check-circle me-1"></i>Record Payments (For amounts entered)</button>
                 </form>
             </div>
         </div>
@@ -173,6 +175,46 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
     var hiddenInput = document.getElementById('payMemberId');
     var resultsBox = document.getElementById('payMemberResults');
     var clearBtn = document.getElementById('clearPayMember');
+    var payForRows = document.getElementById('payForRows');
+
+    function feeOptionsFor(member) {
+        var opts = [];
+        if (parseFloat(member.monthly_fee || 0) > 0) opts.push('Membership Fee');
+        if (parseFloat(member.kids_fee || 0) > 0 || (member.access_type === 'kids_play' || member.access_type === 'both')) opts.push('Kids Fee');
+        if ((member.trainer_id && member.trainer_id > 0) || parseFloat(member.trainer_fee || 0) > 0) opts.push('Personal Training');
+        if (parseFloat(member.registration_fee || 0) > 0) opts.push('Registration Fee');
+        if (!opts.length) opts.push('Membership Fee');
+        opts.push('Plan Renewal');
+        opts.push('Other');
+        return opts;
+    }
+
+    function renderPayFor(member) {
+        var opts = feeOptionsFor(member);
+        payForRows.innerHTML = '';
+        opts.forEach(function(v) {
+            var row = document.createElement('div');
+            row.className = 'input-group mb-2';
+            var label = document.createElement('span');
+            label.className = 'input-group-text fw-semibold';
+            label.style.minWidth = '150px';
+            label.textContent = v;
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.step = '1';
+            input.min = '0';
+            input.name = 'amounts[' + v + ']';
+            input.className = 'form-control';
+            input.placeholder = '0 (leave empty if not paying)';
+            row.appendChild(label);
+            row.appendChild(input);
+            payForRows.appendChild(row);
+        });
+    }
+
+    function resetPayFor() {
+        payForRows.innerHTML = '<div class="text-muted small py-2"><i class="fas fa-user me-1"></i>Select a member first &mdash; their payment options will appear here.</div>';
+    }
 
     // Pre-fill if active member ID exists
     var activeId = hiddenInput.value;
@@ -181,6 +223,7 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
         if (found) {
             searchInput.value = found.name + (found.phone ? ' (' + found.phone + ')' : '');
             clearBtn.style.display = 'inline-block';
+            renderPayFor(found);
         }
     }
 
@@ -215,6 +258,7 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
                 hiddenInput.value = m.id;
                 resultsBox.style.display = 'none';
                 clearBtn.style.display = 'inline-block';
+                renderPayFor(m);
             });
             resultsBox.appendChild(a);
         });
@@ -239,6 +283,7 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
             clearBtn.style.display = 'inline-block';
         } else {
             clearBtn.style.display = 'none';
+            resetPayFor();
         }
         renderList(this.value);
     });
@@ -249,6 +294,7 @@ foreach ($payments as $p) $totalCollected += (float)$p['amount'];
         clearBtn.style.display = 'none';
         resultsBox.style.display = 'none';
         resultsBox.innerHTML = '';
+        resetPayFor();
         searchInput.focus();
     });
 
