@@ -3,6 +3,7 @@ assets/vendor/
 
 # Production database dump (real data - private)
 database_live_ready.sql
+live_database_updated.sql.txt
 
 # OS files
 Thumbs.db
