@@ -55,7 +55,7 @@ $activePage = $activePage ?? '';
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link <?php echo $activePage === 'member_fee_due' ? 'active' : ''; ?>" href="/gym/members/fee_due.php">
-                                    <i class="fas fa-calendar-exclamation me-1"></i><span>Fee Due Report</span>
+                                    <i class="fas fa-circle-exclamation me-1"></i><span>Fee Due Report</span>
                                 </a>
                             </li>
                             <li class="nav-item">

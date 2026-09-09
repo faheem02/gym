@@ -330,15 +330,44 @@ $autoprint = !empty($_GET['autoprint']);
         }
         .btn-back:hover { background: var(--light); }
 
+        /* ── Thermal Slip (screen hidden, thermal print only) ── */
+        .thermal-slip {
+            display: none;
+            width: 80mm;
+            margin: 0 auto;
+            background: #fff;
+            color: #000;
+            padding: 8px 10px;
+            font-family: 'Courier New', 'Consolas', monospace, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .thermal-slip .tsh { text-align: center; margin-bottom: 8px; }
+        .thermal-slip .tsh img { max-height: 42px; max-width: 150px; object-fit: contain; margin-bottom: 4px; filter: brightness(0); -webkit-filter: brightness(0); }
+        .thermal-slip .tsh .name { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .thermal-slip .tsh .info { font-size: 9.5px; line-height: 1.3; color: #111; }
+        .thermal-slip .tsh .title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; padding: 2px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+        .thermal-slip .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+        .thermal-slip .lbl { font-weight: 600; }
+        .thermal-slip .ta-r { text-align: right; }
+        .thermal-slip hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+        .thermal-slip .sec { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 8px 0 4px; border-bottom: 1px dashed #000; }
+        .thermal-slip .tot { font-weight: 700; font-size: 12px; }
+        .thermal-slip .ftr { text-align: center; margin-top: 12px; font-size: 9.5px; line-height: 1.45; }
+
         /* ── Print ── */
+        @page slip-a4 { size: A4; margin: 12mm 14mm; }
+        @page slip-thermal { size: 80mm auto; margin: 3mm 4mm; }
         @media print {
             body { background: #fff; padding: 0; margin: 0; }
-            .page { box-shadow: none; max-width: 100%; }
+            .page { box-shadow: none; max-width: 100%; page: slip-a4; }
+            .thermal-slip { display: none !important; }
             .actions { display: none !important; }
-            @page {
-                size: A4;
-                margin: 12mm 14mm;
-            }
+
+            body.thermal-print .page { display: none !important; }
+            body.thermal-print .thermal-slip { display: block !important; }
+            body.thermal-print .thermal-slip { page: slip-thermal; }
+            body.thermal-print { padding: 0; margin: 0; background: #fff; }
         }
     </style>
 </head>
@@ -381,9 +410,9 @@ $autoprint = !empty($_GET['autoprint']);
                 <?php endif; ?>
                 <tr>
                     <td>Contact</td>
-                    <td><?php echo htmlspecialchars($member['phone']); ?><?php if (!empty($member['email'])): ?> &middot; <?php echo htmlspecialchars($member['email']); ?><?php endif; ?></td>
+                    <td><?php echo htmlspecialchars($member['phone']); ?></td>
                 </tr>
-                <?php if (!empty($member['date_of_birth']) || !empty($member['gender'])): ?>
+                <?php if (!empty($member['date_of_birth']) || !empty($member['age']) || !empty($member['gender'])): ?>
                 <tr>
                     <td>Personal</td>
                     <td>
@@ -391,6 +420,7 @@ $autoprint = !empty($_GET['autoprint']);
                         $parts = [];
                         if (!empty($member['gender'])) $parts[] = ucfirst(htmlspecialchars($member['gender']));
                         if (!empty($member['date_of_birth'])) $parts[] = date('d M Y', strtotime($member['date_of_birth']));
+                        if (!empty($member['age'])) $parts[] = htmlspecialchars($member['age']) . ' years';
                         echo implode(' &middot; ', $parts);
                         ?>
                     </td>
@@ -539,8 +569,80 @@ $autoprint = !empty($_GET['autoprint']);
         </div>
     </div>
 
+    <!-- Thermal Slip (used when "Print Slip" → thermal printer) -->
+    <div class="thermal-slip" id="thermalSlip">
+        <div class="tsh">
+            <img src="<?php echo GYM_LOGO; ?>" alt="logo" onerror="this.onerror=null; this.src='/gym/logo/The%20Compound%20Logo-01.png';">
+            <div class="name"><?php echo htmlspecialchars(GYM_NAME); ?></div>
+            <div class="info"><?php echo htmlspecialchars(GYM_PHONE); ?><br><?php echo htmlspecialchars(GYM_ADDRESS); ?></div>
+            <div class="title">Membership Slip</div>
+        </div>
+
+        <div class="row"><span class="lbl">Member #:</span><span class="ta-r">#<?php echo str_pad($member['id'], 5, '0', STR_PAD_LEFT); ?></span></div>
+        <div class="row"><span class="lbl">Name:</span><span class="ta-r"><?php echo htmlspecialchars($member['name']); ?></span></div>
+        <?php if (!empty($member['guardian_name'])): ?>
+        <div class="row"><span class="lbl">Guardian:</span><span class="ta-r"><?php echo htmlspecialchars($member['guardian_name']); ?></span></div>
+        <?php endif; ?>
+        <div class="row"><span class="lbl">Phone:</span><span class="ta-r"><?php echo htmlspecialchars($member['phone']); ?></span></div>
+        <?php if (!empty($member['date_of_birth']) || !empty($member['age']) || !empty($member['gender'])): ?>
+        <?php
+        $tParts = [];
+        if (!empty($member['gender'])) $tParts[] = ucfirst(htmlspecialchars($member['gender']));
+        if (!empty($member['date_of_birth'])) $tParts[] = date('d M Y', strtotime($member['date_of_birth']));
+        if (!empty($member['age'])) $tParts[] = htmlspecialchars($member['age']) . ' yrs';
+        ?>
+        <div class="row"><span class="lbl">Personal:</span><span class="ta-r"><?php echo implode(' &middot; ', $tParts); ?></span></div>
+        <?php endif; ?>
+        <div class="row"><span class="lbl">Join Date:</span><span class="ta-r"><?php echo date('d M Y', strtotime($member['join_date'])); ?></span></div>
+        <div class="row"><span class="lbl">Access:</span><span class="ta-r"><?php echo htmlspecialchars($currAccess['label']); ?></span></div>
+        <div class="row"><span class="lbl">Status:</span><span class="ta-r"><?php echo ucfirst($member['status']); ?></span></div>
+
+        <?php if ($activeSub): ?>
+        <hr>
+        <div class="sec">Diet Plan</div>
+        <div class="row"><span class="lbl">Plan:</span><span class="ta-r"><?php echo htmlspecialchars($activeSub['plan_name']); ?></span></div>
+        <div class="row"><span class="lbl">Start:</span><span class="ta-r"><?php echo date('d M Y', strtotime($activeSub['start_date'])); ?></span></div>
+        <div class="row"><span class="lbl">End:</span><span class="ta-r"><?php echo date('d M Y', strtotime($activeSub['end_date'])); ?></span></div>
+        <div class="row"><span class="lbl">Remaining:</span><span class="ta-r"><?php echo $daysLeft > 0 ? $daysLeft . ' days' : '<strong>Expired</strong>'; ?></span></div>
+        <?php endif; ?>
+
+        <hr>
+        <div class="sec">Fees</div>
+        <div class="row"><span>Registration:</span><span class="ta-r">Rs. <?php echo number_format($regFee, 0); ?></span></div>
+        <?php if ($monthlyFee > 0): ?>
+        <div class="row"><span>Monthly Fee:</span><span class="ta-r">Rs. <?php echo number_format($monthlyFee, 0); ?></span></div>
+        <?php endif; ?>
+        <?php if ($kidsFee > 0): ?>
+        <div class="row"><span>Kids Fee:</span><span class="ta-r">Rs. <?php echo number_format($kidsFee, 0); ?></span></div>
+        <?php endif; ?>
+        <?php if ($trainerFee > 0): ?>
+        <div class="row"><span>Trainer Fee:</span><span class="ta-r">Rs. <?php echo number_format($trainerFee, 0); ?></span></div>
+        <?php endif; ?>
+        <?php if ($discount > 0): ?>
+        <div class="row"><span>Discount:</span><span class="ta-r">- Rs. <?php echo number_format($discount, 0); ?></span></div>
+        <?php endif; ?>
+        <div class="row tot"><span>TOTAL PAYABLE:</span><span class="ta-r">Rs. <?php echo number_format($totalPayable, 0); ?></span></div>
+        <div class="row"><span>Amount Paid:</span><span class="ta-r">Rs. <?php echo number_format($totalPaid, 0); ?></span></div>
+        <div class="row"><span>Balance:</span>
+            <span class="ta-r">
+                <?php if ($remainingDue <= 0): ?>
+                    <strong>Fully Paid</strong>
+                <?php else: ?>
+                    <strong>Rs. <?php echo number_format($remainingDue, 0); ?> (Due)</strong>
+                <?php endif; ?>
+            </span>
+        </div>
+
+        <hr>
+        <div class="ftr">
+            Issued: <?php echo date('d M Y, h:i A'); ?><br>
+            Member Signature: ______________________<br>
+            <strong>Thank you for choosing <?php echo htmlspecialchars(GYM_NAME); ?>!</strong>
+        </div>
+    </div>
+
     <div class="actions">
-        <button class="btn-print" onclick="window.print();">
+        <button type="button" class="btn-print" onclick="thermalPrint();">
             <i class="fas fa-print me-1"></i> Print Slip
         </button>
         <button class="btn-print" style="background:#0284c7;" onclick="downloadSlipPDF();">
@@ -581,6 +683,14 @@ $autoprint = !empty($_GET['autoprint']);
                 btn.innerHTML = originalHTML;
             }
         });
+    }
+
+    function thermalPrint() {
+        document.body.classList.add('thermal-print');
+        window.print();
+        setTimeout(function () {
+            document.body.classList.remove('thermal-print');
+        }, 500);
     }
 
     <?php if ($autoprint): ?>

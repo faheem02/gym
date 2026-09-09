@@ -13,9 +13,9 @@ if ($msg === 'delete_failed') echo '<div class="alert alert-danger py-2"><i clas
 $sql = 'SELECT m.*, t.name AS trainer_name FROM members m LEFT JOIN trainers t ON m.trainer_id = t.id';
 $params = [];
 if ($search !== '') {
-    $sql .= ' WHERE m.name LIKE ? OR m.phone LIKE ? OR m.email LIKE ? OR m.membership_type LIKE ? OR t.name LIKE ?';
+    $sql .= ' WHERE m.name LIKE ? OR m.phone LIKE ? OR m.membership_type LIKE ? OR t.name LIKE ?';
     $like = '%' . $search . '%';
-    $params = [$like, $like, $like, $like, $like];
+    $params = [$like, $like, $like, $like];
 }
 $sql .= ' ORDER BY m.id DESC';
 $stmt = $pdo->prepare($sql);
@@ -34,7 +34,7 @@ $inactiveCount = $totalMembers - $activeCount;
     <div class="row g-2 align-items-center">
         <div class="col-md-5 col-lg-4">
             <form method="GET" action="" class="d-flex align-items-center gap-2">
-                <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" class="form-control" placeholder="Search by name, phone or email...">
+                <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" class="form-control" placeholder="Search by name or phone...">
                 <button class="btn btn-dark btn-sm text-nowrap px-3" type="submit"><i class="fas fa-search me-1"></i>Search</button>
             </form>
         </div>

@@ -54,16 +54,6 @@ foreach ($rows as $r) {
     else $current[] = $item;
 }
 
-$sectionConfig = [
-    'overdue'   => ['label' => 'Overdue / Expired', 'icon' => 'fa-exclamation-triangle', 'class' => 'danger', 'rows' => $overdue],
-    'due_soon'  => ['label' => 'Due Within 7 Days', 'icon' => 'fa-hourglass-half', 'class' => 'warning', 'rows' => $dueSoon],
-    'current'   => ['label' => 'Currently Paid Up', 'icon' => 'fa-check-circle', 'class' => 'success', 'rows' => $current],
-];
-
-$totalDue = 0;
-foreach ($overdue as $o) $totalDue += $o['monthly_fee'];
-foreach ($dueSoon as $s) $totalDue += $s['monthly_fee'];
-
 // Search / filter
 $search = trim($_GET['q'] ?? '');
 $catFilter = $_GET['cat'] ?? '';
@@ -85,6 +75,16 @@ if ($catFilter !== '') {
         foreach ($allowed as $a) if (!isset($keep[$a])) ${$a} = [];
     }
 }
+
+$sectionConfig = [
+    'overdue'   => ['label' => 'Overdue / Expired', 'icon' => 'fa-exclamation-triangle', 'class' => 'danger', 'rows' => $overdue],
+    'due_soon'  => ['label' => 'Due Within 7 Days', 'icon' => 'fa-hourglass-half', 'class' => 'warning', 'rows' => $dueSoon],
+    'current'   => ['label' => 'Currently Paid Up', 'icon' => 'fa-check-circle', 'class' => 'success', 'rows' => $current],
+];
+
+$totalDue = 0;
+foreach ($overdue as $o) $totalDue += $o['monthly_fee'];
+foreach ($dueSoon as $s) $totalDue += $s['monthly_fee'];
 ?>
 
 <div class="search-bar">

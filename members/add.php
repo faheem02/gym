@@ -27,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $guardian_name = trim($_POST['guardian_name'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
-    $email = trim($_POST['email'] ?? '');
     $date_of_birth = trim($_POST['date_of_birth'] ?? '') ?: null;
+    $age = (isset($_POST['age']) && $_POST['age'] !== '') ? (int)$_POST['age'] : null;
     $gender = $_POST['gender'] ?? null;
     $membership_type = trim($_POST['membership_type'] ?? '') ?: null;
     $join_date = trim($_POST['join_date'] ?? date('Y-m-d'));
@@ -77,13 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            $stmt = $pdo->prepare('INSERT INTO members (name, guardian_name, phone, email, date_of_birth, gender, membership_type, area_of_interest, join_date, status, access_type, registration_fee, monthly_fee, trainer_fee, kids_fee, discount, trainer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmt = $pdo->prepare('INSERT INTO members (name, guardian_name, phone, date_of_birth, age, gender, membership_type, area_of_interest, join_date, status, access_type, registration_fee, monthly_fee, trainer_fee, kids_fee, discount, trainer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
             $stmt->execute([
                 $name,
                 $guardian_name ?: null,
                 $phone,
-                $email ?: null,
                 $date_of_birth,
+                $age,
                 $gender,
                 $membership_type,
                 $area_of_interest,
@@ -280,13 +280,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="row">
-                <div class="col-md-6 mb-3" id="emailCol">
-                    <label class="form-label"><i class="fas fa-envelope me-1 text-muted"></i>Email</label>
-                    <input type="email" name="email" class="form-control" placeholder="Enter email address" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
-                </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label" id="dobLabel"><i class="fas fa-birthday-cake me-1 text-muted"></i>Date of Birth</label>
                     <input type="date" name="date_of_birth" class="form-control" value="<?php echo htmlspecialchars($_POST['date_of_birth'] ?? ''); ?>">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label"><i class="fas fa-sort-numeric-up me-1 text-muted"></i>Age (Years)</label>
+                    <input type="number" name="age" min="0" max="120" class="form-control" placeholder="Enter age" value="<?php echo htmlspecialchars($_POST['age'] ?? ''); ?>">
                 </div>
             </div>
 
@@ -634,7 +634,6 @@ function selectAccessType(type) {
     var kidsFeeCol = document.getElementById('kidsFeeCol');
     var trainerSection = document.getElementById('trainerSection');
     var fitnessGoalSection = document.getElementById('fitnessGoalSection');
-    var emailCol = document.getElementById('emailCol');
 
     // Summary elements
     var summaryMonthlyRow = document.getElementById('summaryMonthlyRow');

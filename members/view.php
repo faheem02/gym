@@ -133,9 +133,15 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
                     <li class="mb-3"><i class="fas fa-user-shield text-muted me-2"></i><span class="text-muted">Guardian / Parent:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['guardian_name']); ?></span></li>
                     <?php endif; ?>
                     <li class="mb-3"><i class="fas fa-phone text-muted me-2"></i><span class="text-muted">Phone:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['phone']); ?></span></li>
-                    <li class="mb-3"><i class="fas fa-envelope text-muted me-2"></i><span class="text-muted">Email:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['email'] ?? '-'); ?></span></li>
-                    <?php if (!empty($member['date_of_birth'])): ?>
-                    <li class="mb-3"><i class="fas fa-birthday-cake text-muted me-2"></i><span class="text-muted">Date of Birth:</span> <span class="fw-semibold"><?php echo date('d M Y', strtotime($member['date_of_birth'])); ?></span></li>
+                    <?php if (!empty($member['date_of_birth']) || !empty($member['age'])): ?>
+                    <li class="mb-3"><i class="fas fa-birthday-cake text-muted me-2"></i><span class="text-muted">DOB / Age:</span> <span class="fw-semibold">
+                        <?php
+                        $parts = [];
+                        if (!empty($member['date_of_birth'])) $parts[] = date('d M Y', strtotime($member['date_of_birth']));
+                        if (!empty($member['age'])) $parts[] = $member['age'] . ' years';
+                        echo htmlspecialchars(implode(' &middot; ', $parts));
+                        ?>
+                    </span></li>
                     <?php endif; ?>
                     <?php if (!empty($member['gender'])): ?>
                     <li class="mb-3"><i class="fas fa-venus-mars text-muted me-2"></i><span class="text-muted">Gender:</span> <span class="fw-semibold"><?php echo ucfirst(htmlspecialchars($member['gender'])); ?></span></li>

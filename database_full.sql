@@ -81,6 +81,7 @@ CREATE TABLE members (
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(100) DEFAULT NULL,
     date_of_birth DATE DEFAULT NULL,
+    age INT DEFAULT NULL,
     gender ENUM('male','female','other') DEFAULT NULL,
     membership_type VARCHAR(50) DEFAULT NULL,
     area_of_interest TEXT DEFAULT NULL,

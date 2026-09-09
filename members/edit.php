@@ -31,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $guardian_name = trim($_POST['guardian_name'] ?? '') ?: null;
     $phone = trim($_POST['phone'] ?? '');
-    $email = trim($_POST['email'] ?? '');
     $date_of_birth = trim($_POST['date_of_birth'] ?? '') ?: null;
+    $age = (isset($_POST['age']) && $_POST['age'] !== '') ? (int)$_POST['age'] : null;
     $gender = $_POST['gender'] ?? null;
     $membership_type = trim($_POST['membership_type'] ?? '') ?: null;
     $join_date = trim($_POST['join_date'] ?? '');
@@ -57,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $stmt = $pdo->prepare('UPDATE members SET name = ?, guardian_name = ?, phone = ?, email = ?, date_of_birth = ?, gender = ?, membership_type = ?, area_of_interest = ?, join_date = ?, status = ?, access_type = ?, registration_fee = ?, monthly_fee = ?, trainer_fee = ?, kids_fee = ?, discount = ?, trainer_id = ? WHERE id = ?');
-            $stmt->execute([$name, $guardian_name, $phone, $email ?: null, $date_of_birth, $gender, $membership_type, $area_of_interest, $join_date, $status, $access_type, $registration_fee, $monthly_fee, $trainer_id > 0 ? $trainer_fee : 0, $kids_fee, $discount, $trainer_id > 0 ? $trainer_id : null, $id]);
+            $stmt = $pdo->prepare('UPDATE members SET name = ?, guardian_name = ?, phone = ?, date_of_birth = ?, age = ?, gender = ?, membership_type = ?, area_of_interest = ?, join_date = ?, status = ?, access_type = ?, registration_fee = ?, monthly_fee = ?, trainer_fee = ?, kids_fee = ?, discount = ?, trainer_id = ? WHERE id = ?');
+            $stmt->execute([$name, $guardian_name, $phone, $date_of_birth, $age, $gender, $membership_type, $area_of_interest, $join_date, $status, $access_type, $registration_fee, $monthly_fee, $trainer_id > 0 ? $trainer_fee : 0, $kids_fee, $discount, $trainer_id > 0 ? $trainer_id : null, $id]);
 
             if ($plan_id > 0) {
                 $stmt2 = $pdo->prepare('SELECT * FROM plans WHERE id = ?');
@@ -110,16 +110,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label class="form-label"><i class="fas fa-phone me-1 text-muted"></i>Phone *</label>
                 <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($_POST['phone'] ?? $member['phone']); ?>" required>
             </div>
-            <div class="mb-3">
-                <label class="form-label"><i class="fas fa-envelope me-1 text-muted"></i>Email</label>
-                <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($_POST['email'] ?? ($member['email'] ?? '')); ?>">
-            </div>
             <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                     <label class="form-label"><i class="fas fa-birthday-cake me-1 text-muted"></i>Date of Birth</label>
                     <input type="date" name="date_of_birth" class="form-control" value="<?php echo htmlspecialchars($_POST['date_of_birth'] ?? ($member['date_of_birth'] ?? '')); ?>">
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label"><i class="fas fa-sort-numeric-up me-1 text-muted"></i>Age (Years)</label>
+                    <input type="number" name="age" min="0" max="120" class="form-control" placeholder="Enter age" value="<?php echo htmlspecialchars($_POST['age'] ?? ($member['age'] ?? '')); ?>">
+                </div>
+                <div class="col-md-4 mb-3">
                     <label class="form-label"><i class="fas fa-venus-mars me-1 text-muted"></i>Gender</label>
                     <select name="gender" class="form-select">
                         <option value="">-- Select --</option>
