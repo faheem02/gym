@@ -181,19 +181,26 @@ foreach ($stmt->fetchAll() as $p) {
     ];
 }
 
-usort($transactions, function($a, $b) {
-    $d = strcmp($b['date'], $a['date']);
-    if ($d === 0) return strcmp($b['time'], $a['time']);
-    return $d;
+$typePriority = [
+    'salary'  => 1,
+    'payment' => 2,
+];
+
+usort($transactions, function($a, $b) use ($typePriority) {
+    $d = strcmp($a['date'], $b['date']);
+    if ($d !== 0) return $d;
+    $pA = $typePriority[$a['type']] ?? 10;
+    $pB = $typePriority[$b['type']] ?? 10;
+    if ($pA !== $pB) return $pA - $pB;
+    return strcmp($a['time'] ?? '', $b['time'] ?? '');
 });
 
 $runningBalance = 0;
 $displayTransactions = [];
 foreach ($transactions as $t) {
-    $runningBalance += $t['debit'] - $t['credit'];
+    $runningBalance += ($t['debit'] - $t['credit']);
     $displayTransactions[] = array_merge($t, ['balance' => $runningBalance]);
 }
-$displayTransactions = array_reverse($displayTransactions);
 
 $filtered = $displayTransactions;
 if ($dateFrom !== '') {

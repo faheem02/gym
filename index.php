@@ -11,6 +11,16 @@ $expiringSoon = $pdo->query("SELECT COUNT(*) FROM subscriptions WHERE status = '
 $todayCheckins = (int)$pdo->query('SELECT COUNT(*) FROM attendance WHERE check_in_date = CURDATE()')->fetchColumn();
 $totalTrainers = (int)$pdo->query('SELECT COUNT(*) FROM trainers')->fetchColumn();
 
+$financialSummaries = getAllMembersFinancialSummary($pdo);
+$totalOutstandingDue = 0;
+$membersWithDuesCount = 0;
+foreach ($financialSummaries as $fs) {
+    if ((float)$fs['balance'] > 0) {
+        $membersWithDuesCount++;
+        $totalOutstandingDue += (float)$fs['balance'];
+    }
+}
+
 $recentMembers = $pdo->query('SELECT id, name, phone, join_date, status FROM members ORDER BY id DESC LIMIT 5')->fetchAll();
 $expiring = $pdo->query(
     "SELECT m.name, p.name AS plan_name, s.end_date
@@ -127,6 +137,22 @@ $expiring = $pdo->query(
     </div>
 </div>
 
+<?php if ($membersWithDuesCount > 0): ?>
+<div class="alert alert-danger d-flex flex-wrap justify-content-between align-items-center mb-4 py-2 px-3 shadow-sm rounded-3 border-danger" style="border-left: 5px solid #ef4444;">
+    <div class="d-flex align-items-center gap-3">
+        <div class="text-danger fs-4"><i class="fas fa-exclamation-triangle"></i></div>
+        <div>
+            <span class="fw-bold text-danger">Pending Dues Alert:</span> 
+            <strong>Rs. <?php echo number_format($totalOutstandingDue, 0); ?></strong> outstanding across <strong><?php echo $membersWithDuesCount; ?> member(s)</strong> with unpaid balances.
+        </div>
+    </div>
+    <div class="d-flex gap-2 mt-2 mt-sm-0">
+        <a href="/gym/members/?due=1" class="btn btn-sm btn-danger fw-bold"><i class="fas fa-users me-1"></i>View Defaulters</a>
+        <a href="/gym/members/payments.php" class="btn btn-sm btn-outline-danger fw-semibold"><i class="fas fa-receipt me-1"></i>Payments</a>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="card stat-card">
@@ -185,13 +211,29 @@ $expiring = $pdo->query(
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
-                            <tr><th>Name</th><th>Phone</th><th>Status</th></tr>
+                            <tr><th>Name</th><th>Phone</th><th>Balance</th><th>Status</th></tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($recentMembers as $m): ?>
+                            <?php foreach ($recentMembers as $m): 
+                                $fin = $financialSummaries[$m['id']] ?? null;
+                                $bal = $fin ? (float)$fin['balance'] : 0;
+                            ?>
                                 <tr>
-                                    <td class="fw-semibold"><?php echo htmlspecialchars($m['name']); ?></td>
+                                    <td class="fw-semibold">
+                                        <a href="/gym/members/view.php?id=<?php echo $m['id']; ?>" class="text-decoration-none text-dark"><?php echo htmlspecialchars($m['name']); ?></a>
+                                    </td>
                                     <td><?php echo htmlspecialchars($m['phone']); ?></td>
+                                    <td>
+                                        <?php if ($bal > 0): ?>
+                                            <a href="/gym/members/ledger.php?id=<?php echo $m['id']; ?>" class="text-decoration-none">
+                                                <span class="badge text-bg-danger fw-bold"><i class="fas fa-exclamation-circle me-1"></i>Due: Rs.<?php echo number_format($bal, 0); ?></span>
+                                            </a>
+                                        <?php elseif ($bal < 0): ?>
+                                            <span class="badge text-bg-info text-dark fw-semibold">Adv: Rs.<?php echo number_format(abs($bal), 0); ?></span>
+                                        <?php else: ?>
+                                            <span class="badge text-bg-success fw-normal">Settled</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <span class="badge <?php echo $m['status'] === 'active' ? 'badge-active' : 'badge-inactive'; ?>">
                                             <?php echo ucfirst($m['status']); ?>

@@ -89,55 +89,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
-<div class="card form-card">
-    <div class="card-body">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h5 class="fw-bold mb-1">
+            <i class="fas fa-user-edit text-warning me-2"></i>Edit Member &mdash; <?php echo htmlspecialchars($member['name']); ?>
+            <span class="badge <?php echo ($member['status'] ?? 'active') === 'active' ? 'bg-success' : 'bg-secondary'; ?> ms-2" style="font-size:0.75rem; vertical-align:middle;">
+                <?php echo ucfirst($member['status'] ?? 'active'); ?>
+            </span>
+        </h5>
+        <small class="text-muted">Member ID: #<?php echo $id; ?> &bull; Joined: <?php echo date('d M Y', strtotime($member['join_date'])); ?></small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="index.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Back to Members</a>
+        <a href="view.php?id=<?php echo $id; ?>" class="btn btn-outline-primary btn-sm"><i class="fas fa-eye me-1"></i>View Profile</a>
+        <a href="ledger.php?id=<?php echo $id; ?>" class="btn btn-warning btn-sm fw-bold" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-book me-1"></i>View Ledger</a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4" style="max-width: 1050px;">
+    <div class="card-body p-4">
         <?php if ($error): ?>
-            <div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
+            <div class="alert alert-danger py-2 mb-4"><i class="fas fa-exclamation-circle me-1"></i><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
         <form method="POST" action="">
+            <!-- Section 1: Personal Information -->
             <div class="section-label mb-3">
-                <h6 class="fw-bold text-muted"><i class="fas fa-user me-1"></i> Personal Information</h6>
-                <hr class="mt-1">
+                <h6 class="fw-bold text-dark"><i class="fas fa-user text-primary me-2"></i>Personal Information</h6>
+                <hr class="mt-1 mb-3">
             </div>
 
-            <div class="mb-3">
-                <label class="form-label"><i class="fas fa-user me-1 text-muted"></i>Full Name *</label>
-                <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($_POST['name'] ?? $member['name']); ?>" required>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-user me-1 text-muted"></i>Full Name *</label>
+                    <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($_POST['name'] ?? $member['name']); ?>" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-user-shield me-1 text-muted"></i>Parent / Guardian Name</label>
+                    <input type="text" name="guardian_name" class="form-control" value="<?php echo htmlspecialchars($_POST['guardian_name'] ?? ($member['guardian_name'] ?? '')); ?>" placeholder="Parent/Guardian (for kids play) or alternate contact">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-phone me-1 text-muted"></i>Phone Number *</label>
+                    <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($_POST['phone'] ?? $member['phone']); ?>" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-home me-1 text-muted"></i>Home Address</label>
+                    <input type="text" name="home_address" class="form-control" placeholder="House #, Street, Area, City" value="<?php echo htmlspecialchars($_POST['home_address'] ?? ($member['home_address'] ?? '')); ?>">
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="form-label"><i class="fas fa-user-shield me-1 text-muted"></i>Parent / Guardian Name</label>
-                <input type="text" name="guardian_name" class="form-control" value="<?php echo htmlspecialchars($_POST['guardian_name'] ?? ($member['guardian_name'] ?? '')); ?>" placeholder="Parent/Guardian (for kids play) or alternate contact">
-            </div>
-            <div class="mb-3">
-                <label class="form-label"><i class="fas fa-phone me-1 text-muted"></i>Phone *</label>
-                <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($_POST['phone'] ?? $member['phone']); ?>" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label"><i class="fas fa-home me-1 text-muted"></i>Home Address</label>
-                <textarea name="home_address" class="form-control" rows="2" placeholder="House #, Street, Area, City"><?php echo htmlspecialchars($_POST['home_address'] ?? ($member['home_address'] ?? '')); ?></textarea>
-            </div>
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label"><i class="fas fa-birthday-cake me-1 text-muted"></i>Date of Birth</label>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold"><i class="fas fa-birthday-cake me-1 text-muted"></i>Date of Birth</label>
                     <input type="date" name="date_of_birth" class="form-control" value="<?php echo htmlspecialchars($_POST['date_of_birth'] ?? ($member['date_of_birth'] ?? '')); ?>">
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label"><i class="fas fa-sort-numeric-up me-1 text-muted"></i>Age (Years)</label>
-                    <input type="number" name="age" min="0" max="120" class="form-control" placeholder="Enter age" value="<?php echo htmlspecialchars($_POST['age'] ?? ($member['age'] ?? '')); ?>">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold"><i class="fas fa-sort-numeric-up me-1 text-muted"></i>Age (Years)</label>
+                    <input type="number" name="age" min="0" max="120" class="form-control" placeholder="Age" value="<?php echo htmlspecialchars($_POST['age'] ?? ($member['age'] ?? '')); ?>">
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label"><i class="fas fa-weight-hanging me-1 text-muted"></i>Weight (kg)</label>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold"><i class="fas fa-weight-hanging me-1 text-muted"></i>Weight (kg)</label>
                     <div class="input-group">
                         <input type="number" name="weight" step="0.01" min="0" class="form-control" placeholder="e.g. 72" value="<?php echo htmlspecialchars($_POST['weight'] ?? ($member['weight'] ?? '')); ?>">
                         <span class="input-group-text">kg</span>
                     </div>
-                    <small class="text-muted">Starting weight &mdash; later changes are recorded each time a payment is made</small>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-venus-mars me-1 text-muted"></i>Gender</label>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold"><i class="fas fa-venus-mars me-1 text-muted"></i>Gender</label>
                     <select name="gender" class="form-select">
                         <option value="">-- Select --</option>
                         <option value="male" <?php echo ($_POST['gender'] ?? $member['gender']) === 'male' ? 'selected' : ''; ?>>Male</option>
@@ -146,9 +164,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </select>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-id-card me-1 text-muted"></i>Membership Type</label>
+
+            <!-- Section 2: Membership & Access Settings -->
+            <div class="section-label mb-3">
+                <h6 class="fw-bold text-dark"><i class="fas fa-layer-group text-primary me-2"></i>Membership &amp; Access Settings</h6>
+                <hr class="mt-1 mb-3">
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold"><i class="fas fa-door-open me-1 text-muted"></i>Access Type *</label>
+                    <select name="access_type" class="form-select">
+                        <option value="gym" <?php echo ($_POST['access_type'] ?? $member['access_type']) === 'gym' ? 'selected' : ''; ?>>Gym Access</option>
+                        <option value="kids_play" <?php echo ($_POST['access_type'] ?? $member['access_type']) === 'kids_play' ? 'selected' : ''; ?>>Kids Play Area</option>
+                        <option value="both" <?php echo ($_POST['access_type'] ?? $member['access_type']) === 'both' ? 'selected' : ''; ?>>Gym + Kids Play</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold"><i class="fas fa-id-card me-1 text-muted"></i>Membership Type</label>
                     <div class="input-group">
                         <select name="membership_type" class="form-select" id="membershipTypeSelect">
                             <option value="">-- Select --</option>
@@ -159,22 +192,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addMembershipTypeModal" title="Add new type"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-calendar me-1 text-muted"></i>Join Date *</label>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold"><i class="fas fa-calendar-alt me-1 text-muted"></i>Join Date *</label>
                     <input type="date" name="join_date" class="form-control" value="<?php echo htmlspecialchars($_POST['join_date'] ?? $member['join_date']); ?>" required>
                 </div>
-            </div>
-
-                <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-layer-group me-1 text-muted"></i>Access Type *</label>
-                    <select name="access_type" class="form-select">
-                        <option value="gym" <?php echo ($_POST['access_type'] ?? $member['access_type']) === 'gym' ? 'selected' : ''; ?>>Gym Access</option>
-                        <option value="kids_play" <?php echo ($_POST['access_type'] ?? $member['access_type']) === 'kids_play' ? 'selected' : ''; ?>>Kids Play Area</option>
-                        <option value="both" <?php echo ($_POST['access_type'] ?? $member['access_type']) === 'both' ? 'selected' : ''; ?>>Gym + Kids Play</option>
-                    </select>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-toggle-on me-1 text-muted"></i>Status</label>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold"><i class="fas fa-toggle-on me-1 text-muted"></i>Member Status</label>
                     <select name="status" class="form-select">
                         <option value="active" <?php echo ($_POST['status'] ?? $member['status']) === 'active' ? 'selected' : ''; ?>>Active</option>
                         <option value="inactive" <?php echo ($_POST['status'] ?? $member['status']) === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
@@ -182,47 +205,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <div class="section-label mb-3 mt-4">
-                <h6 class="fw-bold text-muted"><i class="fas fa-file-invoice-dollar me-1"></i> Fee &amp; Concession Details</h6>
-                <hr class="mt-1">
+            <!-- Section 3: Fee & Concession Details -->
+            <div class="section-label mb-3">
+                <h6 class="fw-bold text-dark"><i class="fas fa-file-invoice-dollar text-success me-2"></i>Fee &amp; Concession Details</h6>
+                <hr class="mt-1 mb-3">
             </div>
 
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label"><i class="fas fa-file-invoice me-1 text-muted"></i>Registration Fee (Rs.)</label>
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold"><i class="fas fa-file-invoice me-1 text-muted"></i>Registration Fee (Rs.)</label>
                     <div class="input-group">
                         <span class="input-group-text">Rs.</span>
                         <?php $rf = (float)($_POST['registration_fee'] ?? ($member['registration_fee'] ?? 0)); ?>
                         <input type="number" step="0.01" min="0" name="registration_fee" class="form-control" placeholder="0" value="<?php echo $rf > 0 ? $rf : ''; ?>">
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label fw-bold"><i class="fas fa-calendar-check me-1 text-primary"></i>Gym Monthly Fee (Rs.)</label>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-primary"><i class="fas fa-calendar-check me-1"></i>Gym Monthly Fee (Rs.)</label>
                     <div class="input-group">
                         <span class="input-group-text bg-primary text-white">Rs.</span>
                         <?php $mf = (float)($_POST['monthly_fee'] ?? ($member['monthly_fee'] ?? 0)); ?>
                         <input type="number" step="0.01" min="0" name="monthly_fee" class="form-control fw-bold" placeholder="0" value="<?php echo $mf > 0 ? $mf : ''; ?>">
                     </div>
-                    <small class="text-muted">Monthly gym membership fee</small>
+                    <small class="text-muted">Monthly recurring fee</small>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label"><i class="fas fa-child me-1 text-muted"></i>Kids Area Fee (Rs.)</label>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold"><i class="fas fa-child me-1 text-muted"></i>Kids Area Fee (Rs.)</label>
                     <div class="input-group">
                         <span class="input-group-text">Rs.</span>
                         <?php $kf = (float)($_POST['kids_fee'] ?? ($member['kids_fee'] ?? 0)); ?>
                         <input type="number" step="0.01" min="0" name="kids_fee" class="form-control" placeholder="0" value="<?php echo $kf > 0 ? $kf : ''; ?>">
                     </div>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-hand-holding-usd me-1 text-muted"></i>Trainer Fee (Rs.)</label>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-hand-holding-usd me-1 text-muted"></i>Trainer Fee (Rs.)</label>
                     <div class="input-group">
                         <span class="input-group-text">Rs.</span>
                         <?php $tf = (float)($_POST['trainer_fee'] ?? ($member['trainer_fee'] ?? 0)); ?>
-                        <input type="number" step="0.01" min="0" name="trainer_fee" class="form-control" placeholder="0" value="<?php echo $tf > 0 ? $tf : ''; ?>">
+                        <input type="number" step="0.01" min="0" name="trainer_fee" id="trainerFeeInput" class="form-control" placeholder="0" value="<?php echo $tf > 0 ? $tf : ''; ?>">
                     </div>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label"><i class="fas fa-tag me-1 text-muted"></i>Discount (Rs.)</label>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-tag me-1 text-muted"></i>Discount Concession (Rs.)</label>
                     <div class="input-group">
                         <span class="input-group-text">Rs.</span>
                         <?php $df = (float)($_POST['discount'] ?? ($member['discount'] ?? 0)); ?>
@@ -231,23 +258,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <div class="section-label mb-3 mt-4">
-                <h6 class="fw-bold text-dark"><i class="fas fa-bullseye me-1 text-danger"></i> Fitness Goals</h6>
-                <hr class="mt-1">
+            <!-- Section 4: Fitness Goals -->
+            <div class="section-label mb-3">
+                <h6 class="fw-bold text-dark"><i class="fas fa-bullseye text-danger me-2"></i>Fitness Goals</h6>
+                <hr class="mt-1 mb-3">
             </div>
 
-            <div class="mb-3">
+            <div class="mb-4">
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <label class="form-label mb-0 text-muted"><i class="fas fa-check-square me-1 text-muted"></i>Select member's fitness goals</label>
-                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-1" data-bs-toggle="modal" data-bs-target="#addFitnessGoalModal" title="Add new goal"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#addFitnessGoalModal" title="Add new goal"><i class="fas fa-plus me-1"></i>Add Goal</button>
                 </div>
-                <div class="row" id="fitnessGoalCheckboxes">
+                <div class="row g-2" id="fitnessGoalCheckboxes">
                     <?php 
                     foreach ($fitnessGoals as $fg): 
                         $goalItemId = 'goal_item_' . md5($fg);
                     ?>
-                        <div class="col-md-6 mb-2" id="<?php echo $goalItemId; ?>">
-                            <div class="form-check d-flex justify-content-between align-items-center bg-light px-3 py-1 rounded border">
+                        <div class="col-md-6" id="<?php echo $goalItemId; ?>">
+                            <div class="form-check d-flex justify-content-between align-items-center bg-light px-3 py-2 rounded border">
                                 <div>
                                     <?php $checked = in_array($fg, $currentAOI) ? 'checked' : ''; ?>
                                     <input class="form-check-input" type="checkbox" name="fitness_goals[]" value="<?php echo htmlspecialchars($fg); ?>" id="fg_<?php echo md5($fg); ?>" <?php echo $checked; ?>>
@@ -260,55 +288,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <div class="section-label mb-3 mt-4">
-                <h6 class="fw-bold text-muted"><i class="fas fa-dumbbell me-1"></i> Assign Trainer <small class="fw-normal">(Optional)</small></h6>
-                <hr class="mt-1">
+            <!-- Section 5: Assign Trainer & Diet Plan -->
+            <div class="section-label mb-3">
+                <h6 class="fw-bold text-dark"><i class="fas fa-dumbbell text-warning me-2"></i>Assign Trainer &amp; Diet Plan</h6>
+                <hr class="mt-1 mb-3">
             </div>
 
-            <div class="mb-3">
-                <label class="form-label"><i class="fas fa-user-tie me-1 text-muted"></i>Select Trainer</label>
-                <select name="trainer_id" class="form-select">
-                    <option value="0">-- No Trainer --</option>
-                    <?php foreach ($trainers as $t): ?>
-                        <option value="<?php echo $t['id']; ?>" <?php echo ($_POST['trainer_id'] ?? $member['trainer_id']) == $t['id'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($t['name']); ?> (<?php echo htmlspecialchars($t['specialty'] ?? 'General'); ?>) - Fee: Rs. <?php echo number_format((float)($t['fee'] ?? 0), 0); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="section-label mb-3 mt-4">
-                <h6 class="fw-bold text-muted"><i class="fas fa-utensils me-1"></i> Assign Diet Plan
-                    <?php if ($currentSub): ?>
-                        <small class="fw-normal">(Current: <?php echo htmlspecialchars($currentSub['plan_name'] ?? 'Plan'); ?>, <?php echo date('d M Y', strtotime($currentSub['start_date'])); ?> - <?php echo date('d M Y', strtotime($currentSub['end_date'])); ?>)</small>
-                    <?php else: ?>
-                        <small class="fw-normal">(No active subscription)</small>
-                    <?php endif; ?>
-                </h6>
-                <hr class="mt-1">
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label"><i class="fas fa-tag me-1 text-muted"></i>Select Diet Plan</label>
-                <select name="plan_id" class="form-select" id="planSelect" onchange="updatePlanInfo()">
-                    <option value="0">-- Keep Unchanged / No Plan --</option>
-                    <?php foreach ($plans as $p): ?>
-                        <option value="<?php echo $p['id']; ?>" data-duration="<?php echo $p['duration_days']; ?>" data-price="<?php echo $p['price']; ?>" <?php echo ($_POST['plan_id'] ?? ($currentSub['plan_id'] ?? 0)) == $p['id'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($p['name']); ?> - <?php echo $p['duration_days']; ?> days (Rs.<?php echo number_format($p['price'], 0); ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-user-tie me-1 text-muted"></i>Select Trainer <small class="text-muted fw-normal">(Optional)</small></label>
+                    <select name="trainer_id" id="trainerSelect" class="form-select" onchange="onTrainerChange()">
+                        <option value="0" data-fee="0">-- No Trainer --</option>
+                        <?php foreach ($trainers as $t): ?>
+                            <option value="<?php echo $t['id']; ?>" data-fee="<?php echo (float)($t['fee'] ?? 0); ?>" <?php echo ($_POST['trainer_id'] ?? $member['trainer_id']) == $t['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($t['name']); ?> (<?php echo htmlspecialchars($t['specialty'] ?? 'General'); ?>) &mdash; Fee: Rs. <?php echo number_format((float)($t['fee'] ?? 0), 0); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold"><i class="fas fa-utensils me-1 text-muted"></i>Select Diet Plan
+                        <?php if ($currentSub): ?>
+                            <small class="text-success fw-normal">(Current: <?php echo htmlspecialchars($currentSub['plan_name'] ?? 'Plan'); ?>)</small>
+                        <?php else: ?>
+                            <small class="text-muted fw-normal">(No active subscription)</small>
+                        <?php endif; ?>
+                    </label>
+                    <select name="plan_id" class="form-select" id="planSelect" onchange="updatePlanInfo()">
+                        <option value="0">-- Keep Unchanged / No Plan --</option>
+                        <?php foreach ($plans as $p): ?>
+                            <option value="<?php echo $p['id']; ?>" data-duration="<?php echo $p['duration_days']; ?>" data-price="<?php echo $p['price']; ?>" <?php echo ($_POST['plan_id'] ?? ($currentSub['plan_id'] ?? 0)) == $p['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($p['name']); ?> &mdash; <?php echo $p['duration_days']; ?> days (Rs.<?php echo number_format($p['price'], 0); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
 
             <div id="planFields" style="display: none;">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label"><i class="fas fa-calendar me-1 text-muted"></i>Plan Start Date *</label>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold"><i class="fas fa-calendar me-1 text-muted"></i>Plan Start Date *</label>
                         <input type="date" name="start_date" class="form-control" value="<?php echo htmlspecialchars($_POST['start_date'] ?? ($currentSub['start_date'] ?? date('Y-m-d'))); ?>">
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label"><i class="fas fa-calendar-check me-1 text-muted"></i>Plan End Date</label>
-                        <input type="text" class="form-control" id="endDate" readonly placeholder="Auto-calculated">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold"><i class="fas fa-calendar-check me-1 text-muted"></i>Plan End Date</label>
+                        <input type="text" class="form-control bg-light" id="endDate" readonly placeholder="Auto-calculated">
                     </div>
                 </div>
                 <div class="alert alert-info py-2 mb-3" id="planSummary" style="display: none;">
@@ -317,9 +342,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-warning fw-bold"><i class="fas fa-save me-1"></i>Update Member</button>
-                <a href="index.php" class="btn btn-outline-secondary">Cancel</a>
+            <div class="d-flex gap-2 pt-3 border-top">
+                <button type="submit" class="btn btn-warning fw-bold px-4 py-2" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-save me-1"></i>Update Member</button>
+                <a href="index.php" class="btn btn-outline-secondary px-3 py-2">Cancel</a>
             </div>
         </form>
     </div>
@@ -364,6 +389,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+function onTrainerChange() {
+    var sel = document.getElementById('trainerSelect');
+    var feeInput = document.getElementById('trainerFeeInput');
+    if (!sel || !feeInput) return;
+    var opt = sel.options[sel.selectedIndex];
+    var fee = parseFloat(opt.getAttribute('data-fee') || 0);
+    if (fee > 0 && (!feeInput.value || parseFloat(feeInput.value) === 0)) {
+        feeInput.value = fee;
+    }
+}
+
 function updatePlanInfo() {
     var select = document.getElementById('planSelect');
     var planFields = document.getElementById('planFields');

@@ -24,26 +24,62 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $members = $stmt->fetchAll();
 
+$financialSummaries = getAllMembersFinancialSummary($pdo);
+
 $totalMembers = count($members);
 $activeCount = 0;
+$totalOutstandingDues = 0;
+$membersWithDuesCount = 0;
+
 foreach ($members as $m) {
     if ($m['status'] === 'active') $activeCount++;
+    $mBal = (float)($financialSummaries[$m['id']]['balance'] ?? 0);
+    if ($mBal > 0) {
+        $totalOutstandingDues += $mBal;
+        $membersWithDuesCount++;
+    }
 }
 $inactiveCount = $totalMembers - $activeCount;
+
+$dueFilter = ($_GET['due'] ?? '') === '1';
+if ($dueFilter) {
+    $members = array_values(array_filter($members, function($m) use ($financialSummaries) {
+        return (float)($financialSummaries[$m['id']]['balance'] ?? 0) > 0;
+    }));
+}
 ?>
 
 <div class="search-bar">
     <div class="row g-2 align-items-center">
         <div class="col-md-5 col-lg-4">
             <form method="GET" action="" class="d-flex align-items-center gap-2">
+                <?php if ($dueFilter): ?>
+                    <input type="hidden" name="due" value="1">
+                <?php endif; ?>
                 <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" class="form-control" placeholder="Search by name or phone...">
                 <button class="btn btn-dark btn-sm text-nowrap px-3" type="submit"><i class="fas fa-search me-1"></i>Search</button>
+                <?php if ($search !== '' || $dueFilter): ?>
+                    <a href="index.php" class="btn btn-outline-secondary btn-sm" title="Clear filters"><i class="fas fa-times"></i></a>
+                <?php endif; ?>
             </form>
         </div>
         <div class="col-md-7 col-lg-8 d-flex flex-wrap align-items-center justify-content-md-end gap-2">
-            <button type="button" onclick="downloadMemberListPDF();" class="btn btn-primary fw-bold" title="Download PDF"><i class="fas fa-file-pdf me-1"></i>Download PDF</button>
-            <button type="button" onclick="window.print();" class="btn btn-danger fw-bold" title="Print member list"><i class="fas fa-print me-1"></i>Print</button>
-            <a href="add.php" class="btn btn-warning fw-bold"><i class="fas fa-plus me-1"></i>Add Member</a>
+            <?php if ($totalOutstandingDues > 0): ?>
+                <span class="badge py-2 px-3 fw-bold" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:0.85rem;" title="Total unpaid balance across all members">
+                    <i class="fas fa-exclamation-circle me-1"></i>Total Due: Rs.<?php echo number_format($totalOutstandingDues, 0); ?>
+                </span>
+            <?php endif; ?>
+            <div class="btn-group btn-group-sm">
+                <a href="index.php<?php echo $search ? '?q=' . urlencode($search) : ''; ?>" class="btn <?php echo !$dueFilter ? 'btn-dark' : 'btn-outline-dark'; ?>">
+                    All (<?php echo $totalMembers; ?>)
+                </a>
+                <a href="index.php?due=1<?php echo $search ? '&q=' . urlencode($search) : ''; ?>" class="btn <?php echo $dueFilter ? 'btn-danger' : 'btn-outline-danger'; ?>">
+                    <i class="fas fa-exclamation-circle me-1"></i>With Dues (<?php echo $membersWithDuesCount; ?>)
+                </a>
+            </div>
+            <button type="button" onclick="downloadMemberListPDF();" class="btn btn-primary fw-bold btn-sm" title="Download PDF"><i class="fas fa-file-pdf me-1"></i>PDF</button>
+            <button type="button" onclick="window.print();" class="btn btn-danger fw-bold btn-sm" title="Print member list"><i class="fas fa-print me-1"></i>Print</button>
+            <a href="add.php" class="btn btn-warning fw-bold btn-sm"><i class="fas fa-plus me-1"></i>Add Member</a>
         </div>
     </div>
 </div>
@@ -61,18 +97,24 @@ $inactiveCount = $totalMembers - $activeCount;
                     <th>Join Date</th>
                     <th>Weight</th>
                     <th>Trainer</th>
+                    <th>Balance</th>
                     <th>Status</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($members)): ?>
-                    <tr><td colspan="10" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No members found.</td></tr>
+                    <tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No members found.</td></tr>
                 <?php endif; ?>
-                <?php foreach ($members as $m): ?>
+                <?php foreach ($members as $m): 
+                    $fin = $financialSummaries[$m['id']] ?? null;
+                    $bal = $fin ? (float)$fin['balance'] : 0;
+                ?>
                     <tr>
                         <td><?php echo $m['id']; ?></td>
-                        <td class="fw-semibold"><?php echo htmlspecialchars($m['name']); ?></td>
+                        <td class="fw-semibold">
+                            <a href="view.php?id=<?php echo $m['id']; ?>" class="text-decoration-none text-dark"><?php echo htmlspecialchars($m['name']); ?></a>
+                        </td>
                         <td><?php echo htmlspecialchars($m['phone']); ?></td>
                         <td><?php echo !empty($m['gender']) ? ucfirst(htmlspecialchars($m['gender'])) : '<span class="text-muted">-</span>'; ?></td>
                         <td>
@@ -98,14 +140,36 @@ $inactiveCount = $totalMembers - $activeCount;
                             if (!empty($dispW)): ?>
                                 <span class="fw-semibold"><i class="fas fa-weight-hanging me-1 text-muted"></i><?php echo number_format((float)$dispW, 1); ?> kg</span>
                             <?php else: ?>
-                                <span class="text-muted">—</span>
+                                <span class="text-muted">&mdash;</span>
                             <?php endif; ?>
                         </td>
                         <td>
                             <?php if (!empty($m['trainer_name'])): ?>
                                 <span class="badge text-bg-dark"><i class="fas fa-user-tie me-1"></i><?php echo htmlspecialchars($m['trainer_name']); ?></span>
                             <?php else: ?>
-                                <span class="text-muted">—</span>
+                                <span class="text-muted">&mdash;</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($bal > 0): ?>
+                                <a href="ledger.php?id=<?php echo $m['id']; ?>" class="text-decoration-none" title="Gross: Rs.<?php echo number_format($fin['gross_total'], 0); ?> | Paid: Rs.<?php echo number_format($fin['total_paid'], 0); ?> &bull; Click to open ledger">
+                                    <span class="badge text-bg-danger fw-bold d-inline-flex align-items-center gap-1" style="font-size:0.82rem;">
+                                        <i class="fas fa-exclamation-circle"></i>Due: Rs.<?php echo number_format($bal, 0); ?>
+                                    </span>
+                                </a>
+                                <a href="payments.php?member_id=<?php echo $m['id']; ?>&record=1" class="btn btn-xs btn-outline-success py-0 px-2 mt-1 d-block text-nowrap fw-semibold" style="font-size:0.72rem;">
+                                    <i class="fas fa-hand-holding-usd me-1"></i>Receive
+                                </a>
+                            <?php elseif ($bal < 0): ?>
+                                <a href="ledger.php?id=<?php echo $m['id']; ?>" class="text-decoration-none">
+                                    <span class="badge text-bg-info text-dark fw-semibold" title="Advance Payment">
+                                        <i class="fas fa-arrow-down me-1"></i>Adv: Rs.<?php echo number_format(abs($bal), 0); ?>
+                                    </span>
+                                </a>
+                            <?php else: ?>
+                                <span class="badge text-bg-success fw-normal">
+                                    <i class="fas fa-check-circle me-1"></i>Settled
+                                </span>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -150,8 +214,8 @@ $inactiveCount = $totalMembers - $activeCount;
             <div class="print-summary-lbl">Active</div>
         </div>
         <div class="print-summary-box highlight">
-            <div class="print-summary-val"><?php echo $inactiveCount; ?></div>
-            <div class="print-summary-lbl">Inactive</div>
+            <div class="print-summary-val">Rs.<?php echo number_format($totalOutstandingDues, 0); ?></div>
+            <div class="print-summary-lbl">Total Outstanding Due (<?php echo $membersWithDuesCount; ?>)</div>
         </div>
     </div>
 
@@ -167,14 +231,18 @@ $inactiveCount = $totalMembers - $activeCount;
                 <th>Join Date</th>
                 <th>Weight</th>
                 <th>Trainer</th>
+                <th>Balance</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($members)): ?>
-                <tr><td colspan="9" style="text-align:center;padding:20px;color:#666;">No members found.</td></tr>
+                <tr><td colspan="10" style="text-align:center;padding:20px;color:#666;">No members found.</td></tr>
             <?php endif; ?>
-            <?php foreach ($members as $i => $m): ?>
+            <?php foreach ($members as $i => $m): 
+                $fin = $financialSummaries[$m['id']] ?? null;
+                $bal = $fin ? (float)$fin['balance'] : 0;
+            ?>
             <tr class="<?php echo $i % 2 === 0 ? 'even' : ''; ?>">
                 <td><?php echo $i + 1; ?></td>
                 <td><?php echo htmlspecialchars($m['name']); ?></td>
@@ -184,13 +252,22 @@ $inactiveCount = $totalMembers - $activeCount;
                 <td><?php echo date('d M Y', strtotime($m['join_date'])); ?></td>
                 <td><?php $dispW = !empty($m['latest_weight']) ? $m['latest_weight'] : $m['weight']; echo !empty($dispW) ? number_format((float)$dispW, 1) . ' kg' : '-'; ?></td>
                 <td><?php echo !empty($m['trainer_name']) ? htmlspecialchars($m['trainer_name']) : '-'; ?></td>
+                <td>
+                    <?php if ($bal > 0): ?>
+                        <strong>Due: Rs.<?php echo number_format($bal, 0); ?></strong>
+                    <?php elseif ($bal < 0): ?>
+                        Adv: Rs.<?php echo number_format(abs($bal), 0); ?>
+                    <?php else: ?>
+                        Settled
+                    <?php endif; ?>
+                </td>
                 <td><?php echo ucfirst($m['status']); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="9" class="bold">Total — <?php echo $totalMembers; ?> member(s) &nbsp;|&nbsp; Active: <?php echo $activeCount; ?> &nbsp;|&nbsp; Inactive: <?php echo $inactiveCount; ?></td>
+                <td colspan="10" class="bold">Total &mdash; <?php echo $totalMembers; ?> member(s) &nbsp;|&nbsp; Active: <?php echo $activeCount; ?> &nbsp;|&nbsp; Total Due: Rs.<?php echo number_format($totalOutstandingDues, 0); ?></td>
             </tr>
         </tfoot>
     </table>

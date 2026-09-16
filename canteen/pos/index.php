@@ -328,8 +328,12 @@ sort($categories);
                     <!-- Payment Controls -->
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label small fw-bold mb-1">Discount (Rs.)</label>
-                            <input type="number" step="1" name="pos_discount" id="posDiscount" class="form-control form-control-sm" value="0" min="0" oninput="recalcPOS()">
+                            <label class="form-label small fw-bold mb-1">Discount (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="1" name="pos_discount_pct" id="posDiscountPct" class="form-control" value="0" min="0" max="100" oninput="recalcPOS()">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <input type="hidden" name="pos_discount" id="posDiscount" value="0">
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-bold mb-1">Payment Method</label>
@@ -501,13 +505,14 @@ function clearEntireCart() {
 function recalcPOS() {
     let subtotal = 0;
     cart.forEach(function(item) { subtotal += item.price * item.qty; });
-    const discount = parseFloat(document.getElementById('posDiscount').value) || 0;
+    const discountPct = parseFloat(document.getElementById('posDiscountPct').value) || 0;
+    const discount = Math.round(subtotal * discountPct / 100);
     const total = Math.max(0, subtotal - discount);
     const received = parseFloat(document.getElementById('posReceived').value) || 0;
     const change = Math.max(0, received - total);
 
     document.getElementById('posSubtotal').textContent = 'Rs.' + Math.round(subtotal).toLocaleString();
-    document.getElementById('posDiscDisplay').textContent = '- Rs.' + Math.round(discount).toLocaleString();
+    document.getElementById('posDiscDisplay').textContent = '- Rs.' + discount.toLocaleString() + ' (' + discountPct + '%)';
     document.getElementById('posTotal').textContent = 'Rs.' + Math.round(total).toLocaleString();
     document.getElementById('posChange').textContent = 'Rs.' + Math.round(change).toLocaleString();
 
@@ -589,6 +594,13 @@ document.addEventListener('click', function(e) {
 // Form Submission
 document.getElementById('posForm').addEventListener('submit', function(e) {
     const form = this;
+
+    let subtotal = 0;
+    cart.forEach(function(item) { subtotal += item.price * item.qty; });
+    const discountPct = parseFloat(document.getElementById('posDiscountPct').value) || 0;
+    const flatDiscount = Math.round(subtotal * discountPct / 100);
+    document.getElementById('posDiscount').value = flatDiscount;
+
     cart.forEach(function(item) {
         const idInput = document.createElement('input');
         idInput.type = 'hidden';

@@ -7,7 +7,20 @@ $msg = $_GET['msg'] ?? '';
 if ($msg === 'payment') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Payment recorded successfully.</div>';
 if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Payment deleted.</div>';
 
-$members = $pdo->query("SELECT id, name, phone, registration_fee, monthly_fee, kids_fee, trainer_fee, trainer_id, access_type, weight, age FROM members ORDER BY name")->fetchAll();
+$members = $pdo->query("SELECT m.id, m.name, m.phone, m.registration_fee, m.monthly_fee, m.kids_fee, m.trainer_fee, m.trainer_id, m.access_type,
+    COALESCE((SELECT mp.weight FROM member_payments mp WHERE mp.member_id = m.id AND mp.weight IS NOT NULL AND mp.weight > 0 ORDER BY mp.payment_date DESC, mp.id DESC LIMIT 1), m.weight) AS weight,
+    COALESCE((SELECT mp.age FROM member_payments mp WHERE mp.member_id = m.id AND mp.age IS NOT NULL AND mp.age > 0 ORDER BY mp.payment_date DESC, mp.id DESC LIMIT 1), m.age) AS age
+    FROM members m ORDER BY m.name")->fetchAll();
+$financialSummaries = getAllMembersFinancialSummary($pdo);
+
+$allWeightHistory = $pdo->query("
+    SELECT mp.member_id, mp.weight as cur_weight,
+        (SELECT mp2.weight FROM member_payments mp2 WHERE mp2.member_id = mp.member_id AND mp2.id < mp.id AND mp2.weight IS NOT NULL AND mp2.weight > 0 ORDER BY mp2.id DESC LIMIT 1) as prev_weight
+    FROM member_payments mp
+    INNER JOIN (
+        SELECT MAX(id) as max_id FROM member_payments WHERE weight IS NOT NULL AND weight > 0 GROUP BY member_id
+    ) latest ON mp.id = latest.max_id
+")->fetchAll();
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -36,7 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($rows as $row) {
             $stmt->execute([$member_id, $row['amount'], $weight, $age, $method, $row['for'] ?: null, $notes ?: null, $pay_date]);
         }
-        if ($age !== null) {
+        if ($weight !== null && $weight > 0) {
+            $updW = $pdo->prepare('UPDATE members SET weight = ? WHERE id = ?');
+            $updW->execute([$weight, $member_id]);
+        }
+        if ($age !== null && $age > 0) {
             $updA = $pdo->prepare('UPDATE members SET age = ? WHERE id = ?');
             $updA->execute([$age, $member_id]);
         }
@@ -120,6 +137,47 @@ if ($filterMember !== '') {
     </div>
 </div>
 
+<?php 
+$fMemberId = (int)$filterMember;
+if ($fMemberId > 0 && isset($financialSummaries[$fMemberId])): 
+    $fSummary = $financialSummaries[$fMemberId];
+    $fBal = (float)$fSummary['balance'];
+?>
+<div class="card mb-4 shadow-sm <?php echo $fBal > 0 ? 'border-danger' : ($fBal < 0 ? 'border-info' : 'border-success'); ?>" style="border-left: 5px solid <?php echo $fBal > 0 ? '#ef4444' : ($fBal < 0 ? '#0ea5e9' : '#10b981'); ?>;">
+    <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <span class="badge bg-dark">#<?php echo $fMemberId; ?></span>
+                <h6 class="mb-0 fw-bold fs-6"><?php echo htmlspecialchars($filterMemberName); ?></h6>
+                <?php if ($fBal > 0): ?>
+                    <span class="badge text-bg-danger fs-6 fw-bold"><i class="fas fa-exclamation-triangle me-1"></i>Remaining Due: Rs. <?php echo number_format($fBal, 0); ?></span>
+                <?php elseif ($fBal < 0): ?>
+                    <span class="badge text-bg-info text-dark fs-6 fw-bold"><i class="fas fa-arrow-down me-1"></i>Advance Credit: Rs. <?php echo number_format(abs($fBal), 0); ?></span>
+                <?php else: ?>
+                    <span class="badge text-bg-success fs-6 fw-bold"><i class="fas fa-check-circle me-1"></i>All Dues Settled (Rs. 0)</span>
+                <?php endif; ?>
+            </div>
+            <div class="text-muted small mt-1">
+                Gross Charges: <strong>Rs. <?php echo number_format($fSummary['gross_total'], 0); ?></strong>
+                <?php if ((float)$fSummary['discount'] > 0): ?>
+                    | Concession: <strong class="text-danger">-Rs. <?php echo number_format($fSummary['discount'], 0); ?></strong>
+                <?php endif; ?>
+                | Net Payable: <strong>Rs. <?php echo number_format($fSummary['net_payable'], 0); ?></strong>
+                | Total Paid: <strong class="text-success">Rs. <?php echo number_format($fSummary['total_paid'], 0); ?></strong>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/gym/members/ledger.php?id=<?php echo $fMemberId; ?>" class="btn btn-outline-dark btn-sm fw-semibold">
+                <i class="fas fa-book-open me-1"></i>View Full Ledger
+            </a>
+            <button type="button" class="btn btn-success btn-sm fw-bold" onclick="openRecordForMember(<?php echo $fMemberId; ?>)">
+                <i class="fas fa-hand-holding-usd me-1"></i>Record Payment
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Payment history table - full width -->
 <div class="card" style="border-top:3px solid #8b5cf6;">
     <div class="card-body">
@@ -138,13 +196,14 @@ if ($filterMember !== '') {
                         <th>Method</th>
                         <th>Weight</th>
                         <th>Age</th>
-                        <th class="text-end">Amount</th>
+                        <th class="text-end">Amount Paid</th>
+                        <th class="text-center">Remaining Balance</th>
                         <th>Notes</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($payments)): ?>
-                        <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-receipt me-1"></i>No payments recorded.</td></tr>
+                        <tr><td colspan="10" class="text-center text-muted py-4"><i class="fas fa-receipt me-1"></i>No payments recorded.</td></tr>
                     <?php endif; ?>
                     <?php
                     $changeText = '';
@@ -177,15 +236,17 @@ if ($filterMember !== '') {
                                 $curAgeTxt .= ' <span class="badge bg-light text-dark" title="Age change">' . ($aDiff > 0 ? '+' : '') . $aDiff . '</span>';
                             }
                         }
+                        $fin = $financialSummaries[$p['member_id']] ?? null;
+                        $bal = $fin ? (float)$fin['balance'] : 0;
                     ?>
                     <tr>
                         <td><?php echo $i + 1; ?></td>
                         <td><?php echo date('d M Y', strtotime($p['payment_date'])); ?></td>
                         <td class="fw-semibold">
-                            <a href="ledger.php?id=<?php echo $p['member_id']; ?>" class="text-decoration-none"><?php echo htmlspecialchars($p['member_name'] ?? 'Unknown'); ?></a>
+                            <a href="ledger.php?id=<?php echo $p['member_id']; ?>" class="text-decoration-none text-dark fw-bold"><?php echo htmlspecialchars($p['member_name'] ?? 'Unknown'); ?></a>
                         </td>
                         <td><span class="badge" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;"><?php echo htmlspecialchars($p['payment_for'] ?? '-'); ?></span></td>
-                        <td><span class="badge bg-light text-dark"><?php echo ucfirst(str_replace('_', ' ', $p['payment_method'])); ?></span></td>
+                        <td><span class="badge bg-light text-dark border"><?php echo ucfirst(str_replace('_', ' ', $p['payment_method'])); ?></span></td>
                         <td>
                             <?php if ($p['weight'] !== null && $p['weight'] !== ''): ?>
                                 <span class="fw-semibold"><?php echo number_format((float)$p['weight'], 1); ?> kg</span><?php echo $changeText; ?>
@@ -201,6 +262,25 @@ if ($filterMember !== '') {
                             <?php endif; ?>
                         </td>
                         <td class="text-end fw-bold text-success">Rs.<?php echo number_format($p['amount'], 0); ?></td>
+                        <td class="text-center">
+                            <?php if ($bal > 0): ?>
+                                <a href="ledger.php?id=<?php echo $p['member_id']; ?>" class="text-decoration-none" title="Gross: Rs.<?php echo number_format($fin['gross_total'], 0); ?> | Paid: Rs.<?php echo number_format($fin['total_paid'], 0); ?> &bull; Click to open ledger">
+                                    <span class="badge text-bg-danger fw-bold d-inline-flex align-items-center gap-1" style="font-size:0.82rem;">
+                                        <i class="fas fa-exclamation-circle"></i>Due: Rs.<?php echo number_format($bal, 0); ?>
+                                    </span>
+                                </a>
+                            <?php elseif ($bal < 0): ?>
+                                <a href="ledger.php?id=<?php echo $p['member_id']; ?>" class="text-decoration-none">
+                                    <span class="badge text-bg-info text-dark fw-semibold">
+                                        Adv: Rs.<?php echo number_format(abs($bal), 0); ?>
+                                    </span>
+                                </a>
+                            <?php else: ?>
+                                <span class="badge text-bg-success fw-normal">
+                                    <i class="fas fa-check-circle me-1"></i>Settled
+                                </span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-muted small"><?php echo htmlspecialchars($p['notes'] ?? '-'); ?></td>
                     </tr>
                     <?php endforeach; ?>
@@ -232,6 +312,7 @@ if ($filterMember !== '') {
                         </div>
                         <input type="hidden" name="member_id" id="payMemberId" value="<?php echo htmlspecialchars($_POST['member_id'] ?? ''); ?>">
                         <div id="payMemberResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
+                        <div id="memberBalanceBanner" style="display:none;" class="mt-2"></div>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -287,31 +368,64 @@ if ($filterMember !== '') {
 <script>
 (function() {
     var members = <?php echo json_encode($members); ?>;
+    var finSummaries = <?php echo json_encode($financialSummaries); ?>;
     var payForRows = document.getElementById('payForRows');
     var weightInput = document.getElementById('payWeight');
     var weightHint = document.getElementById('weightHint');
     var ageInput = document.getElementById('payAge');
     var ageHint = document.getElementById('ageHint');
+    var balanceBanner = document.getElementById('memberBalanceBanner');
 
     var weightHistory = {};
-    <?php foreach ($payments as $p): ?>
-        <?php if ($p['weight'] !== null && $p['weight'] !== ''): ?>
-            if (!weightHistory[<?php echo (int)$p['member_id']; ?>] || parseFloat(weightHistory[<?php echo (int)$p['member_id']; ?>].prev) === 0) {
-                weightHistory[<?php echo (int)$p['member_id']; ?>] = { cur: parseFloat(<?php echo (float)$p['weight']; ?>), prev: (<?php echo $p['prev_weight'] !== null && $p['prev_weight'] !== '' ? 'parseFloat(' . (float)$p['prev_weight'] . ')' : 'null'; ?>) };
-            }
-        <?php endif; ?>
+    <?php foreach ($allWeightHistory as $wh): ?>
+        weightHistory[<?php echo (int)$wh['member_id']; ?>] = {
+            cur: parseFloat(<?php echo (float)$wh['cur_weight']; ?>),
+            prev: <?php echo ($wh['prev_weight'] !== null && $wh['prev_weight'] !== '') ? 'parseFloat(' . (float)$wh['prev_weight'] . ')' : 'null'; ?>
+        };
     <?php endforeach; ?>
 
+    function renderMemberBalance(member) {
+        if (!balanceBanner || !member) return;
+        var fs = finSummaries[member.id];
+        if (fs) {
+            var bal = parseFloat(fs.balance || 0);
+            if (bal > 0) {
+                balanceBanner.className = 'alert alert-danger d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-0 mt-2 rounded-3 border-danger';
+                balanceBanner.innerHTML = '<div><div class="fw-bold text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Remaining Due: Rs. ' + Math.round(bal).toLocaleString() + '</div><div class="small text-muted">Gross: Rs. ' + Math.round(fs.gross_total).toLocaleString() + (fs.discount > 0 ? ' | Disc: -Rs. ' + Math.round(fs.discount).toLocaleString() : '') + ' | Net: Rs. ' + Math.round(fs.net_payable).toLocaleString() + ' | Paid: Rs. ' + Math.round(fs.total_paid).toLocaleString() + '</div></div><a href="/gym/members/ledger.php?id=' + member.id + '" target="_blank" class="btn btn-sm btn-outline-danger fw-semibold"><i class="fas fa-book-open me-1"></i>Ledger</a>';
+                balanceBanner.style.display = 'flex';
+            } else if (bal < 0) {
+                balanceBanner.className = 'alert alert-info d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-0 mt-2 rounded-3 border-info';
+                balanceBanner.innerHTML = '<div><div class="fw-bold text-info"><i class="fas fa-arrow-down me-1"></i>Advance Credit: Rs. ' + Math.round(Math.abs(bal)).toLocaleString() + '</div><div class="small text-muted">All current charges paid in advance</div></div><a href="/gym/members/ledger.php?id=' + member.id + '" target="_blank" class="btn btn-sm btn-outline-info fw-semibold"><i class="fas fa-book-open me-1"></i>Ledger</a>';
+                balanceBanner.style.display = 'flex';
+            } else {
+                balanceBanner.className = 'alert alert-success d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-0 mt-2 rounded-3 border-success';
+                balanceBanner.innerHTML = '<div><div class="fw-bold text-success"><i class="fas fa-check-circle me-1"></i>All Dues Settled (Rs. 0)</div><div class="small text-muted">No outstanding balance on account</div></div><a href="/gym/members/ledger.php?id=' + member.id + '" target="_blank" class="btn btn-sm btn-outline-success fw-semibold"><i class="fas fa-book-open me-1"></i>Ledger</a>';
+                balanceBanner.style.display = 'flex';
+            }
+        } else {
+            balanceBanner.style.display = 'none';
+            balanceBanner.innerHTML = '';
+        }
+    }
+
+    function resetMemberBalance() {
+        if (balanceBanner) {
+            balanceBanner.style.display = 'none';
+            balanceBanner.innerHTML = '';
+        }
+    }
+
     function populateWeight(member) {
-        var w = member && member.weight ? parseFloat(member.weight) : null;
-        weightInput.value = (w > 0) ? w : '';
+        if (!member) return;
         var h = weightHistory[member.id];
+        var w = (h && h.cur > 0) ? h.cur : (member && member.weight ? parseFloat(member.weight) : null);
+        weightInput.value = (w > 0) ? w : '';
         if (h && h.prev > 0) {
             var diff = h.cur - h.prev;
             weightHint.innerHTML = 'Last recorded: <strong>' + h.cur.toFixed(1) + ' kg</strong> (previous ' + h.prev.toFixed(1) + ' kg &mdash; ' +
                 (Math.abs(diff) > 0.01 ? (diff > 0 ? '<span class="text-warning fw-semibold">gained +' + diff.toFixed(1) + '</span>' : '<span class="text-success fw-semibold">lost ' + Math.abs(diff).toFixed(1) + '</span>') : 'no change') + ')';
         } else if (w > 0) {
-            weightHint.innerHTML = 'Starting weight: <strong>' + w.toFixed(1) + ' kg</strong>';
+            weightHint.innerHTML = 'Current weight: <strong>' + w.toFixed(1) + ' kg</strong>';
         } else {
             weightHint.innerHTML = '';
         }
@@ -335,37 +449,140 @@ if ($filterMember !== '') {
 
     function feeOptionsFor(member) {
         var opts = [];
-        if (parseFloat(member.monthly_fee || 0) > 0) opts.push('Membership Fee');
-        if (parseFloat(member.kids_fee || 0) > 0 || (member.access_type === 'kids_play' || member.access_type === 'both')) opts.push('Kids Fee');
-        if ((member.trainer_id && member.trainer_id > 0) || parseFloat(member.trainer_fee || 0) > 0) opts.push('Personal Training');
-        if (parseFloat(member.registration_fee || 0) > 0) opts.push('Registration Fee');
-        if (!opts.length) opts.push('Membership Fee');
-        opts.push('Plan Renewal');
-        opts.push('Other');
+        var mf = parseFloat(member.monthly_fee || 0);
+        if (mf > 0) {
+            opts.push({ key: 'Membership Fee', label: 'Membership Fee', amount: mf, isDefault: true });
+        }
+        var tf = parseFloat(member.trainer_fee || 0);
+        var hasTrainer = (member.trainer_id && parseInt(member.trainer_id, 10) > 0) || tf > 0;
+        if (hasTrainer) {
+            opts.push({ key: 'Personal Training', label: 'Personal Training', amount: tf, isDefault: true });
+        }
+        var kf = parseFloat(member.kids_fee || 0);
+        if (kf > 0 || (member.access_type === 'kids_play' || member.access_type === 'both')) {
+            opts.push({ key: 'Kids Fee', label: 'Kids Fee', amount: kf, isDefault: (kf > 0) });
+        }
+        var rf = parseFloat(member.registration_fee || 0);
+        if (rf > 0) {
+            opts.push({ key: 'Registration Fee', label: 'Registration Fee', amount: 0, isDefault: false });
+        }
+        if (!opts.length) {
+            opts.push({ key: 'Membership Fee', label: 'Membership Fee', amount: 0, isDefault: false });
+        }
+        opts.push({ key: 'Plan Renewal', label: 'Plan Renewal', amount: 0, isDefault: false });
+        opts.push({ key: 'Other', label: 'Other', amount: 0, isDefault: false });
         return opts;
+    }
+
+    function updateTotalFeeDisplay() {
+        var total = 0;
+        var inputs = payForRows.querySelectorAll('.fee-amount-input');
+        inputs.forEach(function(inp) {
+            var val = parseFloat(inp.value || 0);
+            if (val > 0) total += val;
+        });
+        var totalEl = document.getElementById('payTotalAmount');
+        if (totalEl) {
+            totalEl.textContent = 'Rs. ' + Math.round(total).toLocaleString();
+        }
     }
 
     function renderPayFor(member) {
         var opts = feeOptionsFor(member);
         payForRows.innerHTML = '';
-        opts.forEach(function(v) {
+
+        // Check if multiple pre-filled options exist
+        var defaultOpts = opts.filter(function(o) { return o.isDefault && o.amount > 0; });
+        if (defaultOpts.length > 1) {
+            var toolbar = document.createElement('div');
+            toolbar.className = 'd-flex align-items-center justify-content-between mb-2 flex-wrap gap-1 p-2 bg-light rounded border';
+            toolbar.innerHTML = '<small class="text-muted"><i class="fas fa-magic text-primary me-1"></i>Auto-filled from member profile:</small>' +
+                '<div class="btn-group btn-group-sm">' +
+                    '<button type="button" class="btn btn-outline-primary py-0" id="btnPayAllFees"><i class="fas fa-check-double me-1"></i>Pay All</button>' +
+                    '<button type="button" class="btn btn-outline-success py-0" id="btnPayMonthlyOnly"><i class="fas fa-calendar-check me-1"></i>Monthly Only</button>' +
+                    '<button type="button" class="btn btn-outline-secondary py-0" id="btnClearFees"><i class="fas fa-eraser me-1"></i>Clear All</button>' +
+                '</div>';
+            payForRows.appendChild(toolbar);
+
+            toolbar.querySelector('#btnPayAllFees').addEventListener('click', function() {
+                var inputs = payForRows.querySelectorAll('.fee-amount-input');
+                inputs.forEach(function(inp) {
+                    var def = inp.getAttribute('data-default') || '';
+                    inp.value = def;
+                });
+                updateTotalFeeDisplay();
+            });
+
+            toolbar.querySelector('#btnPayMonthlyOnly').addEventListener('click', function() {
+                var inputs = payForRows.querySelectorAll('.fee-amount-input');
+                inputs.forEach(function(inp) {
+                    var type = inp.getAttribute('data-type');
+                    if (type === 'Membership Fee') {
+                        inp.value = inp.getAttribute('data-default') || '';
+                    } else {
+                        inp.value = '';
+                    }
+                });
+                updateTotalFeeDisplay();
+            });
+
+            toolbar.querySelector('#btnClearFees').addEventListener('click', function() {
+                var inputs = payForRows.querySelectorAll('.fee-amount-input');
+                inputs.forEach(function(inp) {
+                    inp.value = '';
+                });
+                updateTotalFeeDisplay();
+            });
+        }
+
+        opts.forEach(function(item) {
+            var v = item.key;
+            var defaultAmt = (item.isDefault && item.amount > 0) ? item.amount : '';
             var row = document.createElement('div');
             row.className = 'input-group mb-2';
+
             var label = document.createElement('span');
             label.className = 'input-group-text fw-semibold';
-            label.style.minWidth = '150px';
-            label.textContent = v;
+            label.style.minWidth = '160px';
+            label.innerHTML = escapeHtml(item.label) + (item.amount > 0 ? ' <span class="badge bg-light text-muted border ms-1" style="font-size:0.75rem;">Rs.' + Math.round(item.amount).toLocaleString() + '</span>' : '');
+
             var input = document.createElement('input');
             input.type = 'number';
             input.step = '1';
             input.min = '0';
             input.name = 'amounts[' + v + ']';
-            input.className = 'form-control';
+            input.className = 'form-control fee-amount-input';
             input.placeholder = '0 (leave empty if not paying)';
+            if (defaultAmt !== '') {
+                input.value = defaultAmt;
+            }
+            input.setAttribute('data-default', defaultAmt);
+            input.setAttribute('data-type', v);
+            input.addEventListener('input', updateTotalFeeDisplay);
+
+            var clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'btn btn-outline-secondary';
+            clearBtn.title = 'Clear / Set to 0';
+            clearBtn.innerHTML = '<i class="fas fa-times"></i>';
+            clearBtn.addEventListener('click', function() {
+                input.value = '';
+                updateTotalFeeDisplay();
+                input.focus();
+            });
+
             row.appendChild(label);
             row.appendChild(input);
+            row.appendChild(clearBtn);
             payForRows.appendChild(row);
         });
+
+        var summaryBox = document.createElement('div');
+        summaryBox.className = 'd-flex justify-content-between align-items-center p-2 rounded mt-1 border bg-light';
+        summaryBox.innerHTML = '<span class="small fw-semibold text-muted"><i class="fas fa-calculator me-1"></i>Total Payment Amount:</span><span class="fs-6 fw-bold text-success" id="payTotalAmount">Rs. 0</span>';
+        payForRows.appendChild(summaryBox);
+
+        updateTotalFeeDisplay();
     }
 
     function resetPayFor() {
@@ -401,7 +618,21 @@ if ($filterMember !== '') {
                 var a = document.createElement('a');
                 a.href = '#';
                 a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 small';
-                a.innerHTML = '<div><strong>' + escapeHtml(m.name) + '</strong><br><span class="text-muted"><i class="fas fa-phone me-1"></i>' + escapeHtml(m.phone || 'No phone') + '</span></div><span class="badge bg-light text-dark border">Select</span>';
+                
+                var fs = finSummaries[m.id];
+                var balHtml = '';
+                if (fs) {
+                    var b = parseFloat(fs.balance || 0);
+                    if (b > 0) {
+                        balHtml = '<span class="badge text-bg-danger ms-2" style="font-size:0.75rem;"><i class="fas fa-exclamation-circle me-1"></i>Due: Rs.' + Math.round(b).toLocaleString() + '</span>';
+                    } else if (b < 0) {
+                        balHtml = '<span class="badge text-bg-info text-dark ms-2" style="font-size:0.75rem;">Adv: Rs.' + Math.round(Math.abs(b)).toLocaleString() + '</span>';
+                    } else {
+                        balHtml = '<span class="badge text-bg-success ms-2" style="font-size:0.75rem;"><i class="fas fa-check-circle me-1"></i>Settled</span>';
+                    }
+                }
+
+                a.innerHTML = '<div class="me-2"><div class="d-flex align-items-center flex-wrap"><strong>' + escapeHtml(m.name) + '</strong>' + balHtml + '</div><span class="text-muted small"><i class="fas fa-phone me-1"></i>' + escapeHtml(m.phone || 'No phone') + '</span></div><span class="badge bg-light text-dark border">Select</span>';
 
                 a.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -461,26 +692,60 @@ if ($filterMember !== '') {
             document.getElementById('payMemberId').value = '';
             resetPayFor();
             resetWeight();
+            resetMemberBalance();
         },
         onSelect: function(member) {
             renderPayFor(member);
             populateWeight(member);
+            renderMemberBalance(member);
         },
         onClear: function() {
             resetPayFor();
             resetWeight();
+            resetMemberBalance();
         }
     });
 
-    // Pre-fill modal if a member was selected but submission failed
-    var activeId = document.getElementById('payMemberId').value;
-    if (activeId) {
-        var found = members.find(function(m) { return m.id == activeId; });
+    // Helper to open modal pre-populated for a specific member
+    window.openRecordForMember = function(memberId) {
+        var found = members.find(function(m) { return m.id == memberId; });
         if (found) {
+            document.getElementById('payMemberId').value = found.id;
             document.getElementById('payMemberSearch').value = found.name + (found.phone ? ' (' + found.phone + ')' : '');
             document.getElementById('clearPayMember').style.display = 'inline-block';
             renderPayFor(found);
             populateWeight(found);
+            renderMemberBalance(found);
+            var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('recordPaymentModal'));
+            modal.show();
+        }
+    };
+
+    // Pre-fill modal if a member was selected but submission failed, or requested via query string (?record=1&member_id=X)
+    var activeId = document.getElementById('payMemberId').value;
+    var urlParams = new URLSearchParams(window.location.search);
+    var autoOpen = false;
+
+    if (!activeId && urlParams.get('member_id')) {
+        activeId = urlParams.get('member_id');
+        if (urlParams.get('record') === '1') {
+            autoOpen = true;
+        }
+    }
+
+    if (activeId) {
+        var found = members.find(function(m) { return m.id == activeId; });
+        if (found) {
+            document.getElementById('payMemberId').value = found.id;
+            document.getElementById('payMemberSearch').value = found.name + (found.phone ? ' (' + found.phone + ')' : '');
+            document.getElementById('clearPayMember').style.display = 'inline-block';
+            renderPayFor(found);
+            populateWeight(found);
+            renderMemberBalance(found);
+            if (autoOpen) {
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('recordPaymentModal'));
+                modal.show();
+            }
         }
     }
 

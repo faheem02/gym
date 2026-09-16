@@ -42,24 +42,51 @@ $stmt = $pdo->prepare('SELECT COUNT(*) AS total FROM attendance WHERE member_id 
 $stmt->execute([$id]);
 $totalVisits = (int)$stmt->fetch()['total'];
 
-// Balance
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(p.price),0) AS total FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.member_id = ?");
-$stmt->execute([$id]);
-$totalPlanValue = (float)$stmt->fetch()['total'];
+// Financial balance calculation via unified helper
+$fin = getMemberFinancialSummary($pdo, $member);
+$stmtPlan = $pdo->prepare("SELECT COALESCE(SUM(p.price),0) AS total FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.member_id = ?");
+$stmtPlan->execute([$id]);
+$totalPlanValue = (float)$stmtPlan->fetch()['total'];
 
-$regFee = (float)($member['registration_fee'] ?? 0);
-$kidsFee = (float)($member['kids_fee'] ?? 0);
-$trainerFee = (float)($member['trainer_fee'] ?? 0);
-$discount = (float)($member['discount'] ?? 0);
-$totalCharges = $totalPlanValue + $regFee + $kidsFee + $trainerFee - $discount;
-$balance = max(0, $totalCharges - $totalPaidAll);
+$grossTotal = $fin['gross_total'];
+$discount = $fin['discount'];
+$netPayable = $fin['net_payable'];
+$totalPaidAll = $fin['total_paid'];
+$balance = (float)$fin['balance'];
 
 $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86400) : 0;
 ?>
 
 <div class="mb-4 d-flex gap-2">
     <a href="index.php" class="btn btn-warning fw-bold" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;border:none;"><i class="fas fa-arrow-left me-1"></i>Back</a>
+    <a href="ledger.php?id=<?php echo $member['id']; ?>" class="btn btn-dark fw-bold"><i class="fas fa-book-open me-1"></i>Ledger</a>
+    <a href="payments.php?member_id=<?php echo $member['id']; ?>&record=1" class="btn btn-success fw-bold"><i class="fas fa-hand-holding-usd me-1"></i>Receive Payment</a>
 </div>
+
+<?php if ($balance > 0): ?>
+<div class="alert alert-danger d-flex flex-wrap justify-content-between align-items-center mb-4 shadow-sm border-danger" style="border-left: 5px solid #ef4444;">
+    <div class="d-flex align-items-center gap-3">
+        <div class="fs-2 text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+        <div>
+            <h5 class="fw-bold mb-0 text-danger">Outstanding Due: Rs. <?php echo number_format($balance, 0); ?></h5>
+            <div class="small text-muted">
+                Gross Charges: Rs. <?php echo number_format($grossTotal, 0); ?>
+                <?php if ($discount > 0): ?>| Discount: -Rs. <?php echo number_format($discount, 0); ?><?php endif; ?>
+                | Net Payable: Rs. <?php echo number_format($netPayable, 0); ?>
+                | Total Paid: Rs. <?php echo number_format($totalPaidAll, 0); ?>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex gap-2 mt-2 mt-md-0">
+        <a href="payments.php?member_id=<?php echo $member['id']; ?>&record=1" class="btn btn-success fw-bold">
+            <i class="fas fa-hand-holding-usd me-1"></i>Receive Payment
+        </a>
+        <a href="ledger.php?id=<?php echo $member['id']; ?>" class="btn btn-outline-danger fw-semibold">
+            <i class="fas fa-book-open me-1"></i>View Ledger
+        </a>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
@@ -78,8 +105,8 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
             <div class="card-body d-flex align-items-center gap-3">
                 <div class="stat-icon bg-warning"><i class="fas fa-clipboard-list"></i></div>
                 <div>
-                    <h5 class="mb-0 fw-bold">Rs.<?php echo number_format($totalPlanValue, 0); ?></h5>
-                    <small class="text-muted">Total Plan Value</small>
+                    <h5 class="mb-0 fw-bold">Rs.<?php echo number_format($netPayable, 0); ?></h5>
+                    <small class="text-muted">Net Payable</small>
                 </div>
             </div>
         </div>
@@ -87,7 +114,7 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
     <div class="col-6 col-lg-3">
         <div class="card stat-card">
             <div class="card-body d-flex align-items-center gap-3">
-                <div class="stat-icon <?php echo $balance > 0 ? 'bg-danger' : 'bg-primary'; ?>"><i class="fas fa-balance-scale"></i></div>
+                <div class="stat-icon <?php echo $balance > 0 ? 'bg-danger' : ($balance < 0 ? 'bg-info' : 'bg-success'); ?>"><i class="fas fa-balance-scale"></i></div>
                 <div>
                     <h5 class="mb-0 fw-bold">Rs.<?php echo number_format(abs($balance), 0); ?></h5>
                     <small class="text-muted"><?php echo $balance > 0 ? 'Outstanding Due' : ($balance < 0 ? 'Advance Paid' : 'Settled'); ?></small>
