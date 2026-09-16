@@ -1,0 +1,1 @@
+ALTER TABLE members ADD COLUMN home_address TEXT DEFAULT NULL AFTER phone;

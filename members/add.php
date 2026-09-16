@@ -27,8 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $guardian_name = trim($_POST['guardian_name'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
+    $home_address = trim($_POST['home_address'] ?? '') ?: null;
     $date_of_birth = trim($_POST['date_of_birth'] ?? '') ?: null;
     $age = (isset($_POST['age']) && $_POST['age'] !== '') ? (int)$_POST['age'] : null;
+    $weight = (isset($_POST['weight']) && $_POST['weight'] !== '') ? (float)$_POST['weight'] : null;
     $gender = $_POST['gender'] ?? null;
     $membership_type = trim($_POST['membership_type'] ?? '') ?: null;
     $join_date = trim($_POST['join_date'] ?? date('Y-m-d'));
@@ -77,13 +79,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            $stmt = $pdo->prepare('INSERT INTO members (name, guardian_name, phone, date_of_birth, age, gender, membership_type, area_of_interest, join_date, status, access_type, registration_fee, monthly_fee, trainer_fee, kids_fee, discount, trainer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmt = $pdo->prepare('INSERT INTO members (name, guardian_name, phone, home_address, date_of_birth, age, weight, gender, membership_type, area_of_interest, join_date, status, access_type, registration_fee, monthly_fee, trainer_fee, kids_fee, discount, trainer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
             $stmt->execute([
                 $name,
                 $guardian_name ?: null,
                 $phone,
+                $home_address,
                 $date_of_birth,
                 $age,
+                $weight,
                 $gender,
                 $membership_type,
                 $area_of_interest,
@@ -127,10 +131,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $paymentFor = $access_type === 'kids_play' ? 'Kids Play Area Membership' : 'Admission & Membership Fee';
 
-                $stmtPay = $pdo->prepare('INSERT INTO member_payments (member_id, amount, payment_method, payment_for, notes, payment_date) VALUES (?, ?, ?, ?, ?, ?)');
+                $stmtPay = $pdo->prepare('INSERT INTO member_payments (member_id, amount, weight, payment_method, payment_for, notes, payment_date) VALUES (?, ?, ?, ?, ?, ?, ?)');
                 $stmtPay->execute([
                     $memberId,
                     $amount_received,
+                    $weight,
                     $payment_method,
                     $paymentFor,
                     $noteBreakdown,
@@ -279,14 +284,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
+            <div class="mb-3">
+                <label class="form-label"><i class="fas fa-home me-1 text-muted"></i>Home Address</label>
+                <textarea name="home_address" class="form-control" rows="2" placeholder="House #, Street, Area, City"><?php echo htmlspecialchars($_POST['home_address'] ?? ''); ?></textarea>
+            </div>
+
             <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label" id="dobLabel"><i class="fas fa-birthday-cake me-1 text-muted"></i>Date of Birth</label>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label"><i class="fas fa-birthday-cake me-1 text-muted"></i>Date of Birth</label>
                     <input type="date" name="date_of_birth" class="form-control" value="<?php echo htmlspecialchars($_POST['date_of_birth'] ?? ''); ?>">
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                     <label class="form-label"><i class="fas fa-sort-numeric-up me-1 text-muted"></i>Age (Years)</label>
                     <input type="number" name="age" min="0" max="120" class="form-control" placeholder="Enter age" value="<?php echo htmlspecialchars($_POST['age'] ?? ''); ?>">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label"><i class="fas fa-weight-hanging me-1 text-muted"></i>Weight (kg)</label>
+                    <div class="input-group">
+                        <input type="number" name="weight" step="0.01" min="0" class="form-control" placeholder="e.g. 72" value="<?php echo htmlspecialchars($_POST['weight'] ?? ''); ?>">
+                        <span class="input-group-text">kg</span>
+                    </div>
                 </div>
             </div>
 

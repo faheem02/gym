@@ -7,7 +7,7 @@ $msg = $_GET['msg'] ?? '';
 if ($msg === 'payment') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Payment recorded successfully.</div>';
 if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Payment deleted.</div>';
 
-$members = $pdo->query("SELECT id, name, phone, registration_fee, monthly_fee, kids_fee, trainer_fee, trainer_id, access_type FROM members ORDER BY name")->fetchAll();
+$members = $pdo->query("SELECT id, name, phone, registration_fee, monthly_fee, kids_fee, trainer_fee, trainer_id, access_type, weight, age FROM members ORDER BY name")->fetchAll();
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -16,6 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $method = $_POST['payment_method'] ?? 'cash';
     $notes = trim($_POST['notes'] ?? '');
     $pay_date = trim($_POST['payment_date'] ?? date('Y-m-d'));
+    $weight = (isset($_POST['weight']) && $_POST['weight'] !== '') ? (float)$_POST['weight'] : null;
+    $age = (isset($_POST['age']) && $_POST['age'] !== '') ? (int)$_POST['age'] : null;
 
     $rows = [];
     foreach ($amounts as $pf => $amt) {
@@ -30,9 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (empty($rows)) {
         $error = 'Enter an amount for at least one payment type.';
     } else {
-        $stmt = $pdo->prepare('INSERT INTO member_payments (member_id, amount, payment_method, payment_for, notes, payment_date) VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt = $pdo->prepare('INSERT INTO member_payments (member_id, amount, weight, age, payment_method, payment_for, notes, payment_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         foreach ($rows as $row) {
-            $stmt->execute([$member_id, $row['amount'], $method, $row['for'] ?: null, $notes ?: null, $pay_date]);
+            $stmt->execute([$member_id, $row['amount'], $weight, $age, $method, $row['for'] ?: null, $notes ?: null, $pay_date]);
+        }
+        if ($age !== null) {
+            $updA = $pdo->prepare('UPDATE members SET age = ? WHERE id = ?');
+            $updA->execute([$age, $member_id]);
         }
         header('Location: /gym/members/payments.php?msg=payment');
         exit;
@@ -43,7 +49,10 @@ $filterMember = $_GET['member_id'] ?? '';
 $filterDateFrom = $_GET['date_from'] ?? '';
 $filterDateTo = $_GET['date_to'] ?? '';
 
-$sql = "SELECT mp.*, m.name AS member_name, m.phone AS member_phone FROM member_payments mp LEFT JOIN members m ON m.id = mp.member_id WHERE 1=1";
+$sql = "SELECT mp.*, m.name AS member_name, m.phone AS member_phone, m.weight AS current_weight,
+    (SELECT mp2.weight FROM member_payments mp2 WHERE mp2.member_id = mp.member_id AND mp2.id < mp.id AND mp2.weight IS NOT NULL ORDER BY mp2.id DESC LIMIT 1) AS prev_weight,
+    (SELECT mp2.age FROM member_payments mp2 WHERE mp2.member_id = mp.member_id AND mp2.id < mp.id AND mp2.age IS NOT NULL ORDER BY mp2.id DESC LIMIT 1) AS prev_age
+    FROM member_payments mp LEFT JOIN members m ON m.id = mp.member_id WHERE 1=1";
 $params = [];
 if ($filterMember !== '') { $sql .= " AND mp.member_id = ?"; $params[] = $filterMember; }
 if ($filterDateFrom !== '') { $sql .= " AND mp.payment_date >= ?"; $params[] = $filterDateFrom; }
@@ -127,26 +136,73 @@ if ($filterMember !== '') {
                         <th>Member</th>
                         <th>For</th>
                         <th>Method</th>
+                        <th>Weight</th>
+                        <th>Age</th>
                         <th class="text-end">Amount</th>
                         <th>Notes</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($payments)): ?>
-                        <tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-receipt me-1"></i>No payments recorded.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-receipt me-1"></i>No payments recorded.</td></tr>
                     <?php endif; ?>
-                    <?php foreach ($payments as $i => $p): ?>
-                        <tr>
-                            <td><?php echo $i + 1; ?></td>
-                            <td><?php echo date('d M Y', strtotime($p['payment_date'])); ?></td>
-                            <td class="fw-semibold">
-                                <a href="ledger.php?id=<?php echo $p['member_id']; ?>" class="text-decoration-none"><?php echo htmlspecialchars($p['member_name'] ?? 'Unknown'); ?></a>
-                            </td>
-                            <td><span class="badge" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;"><?php echo htmlspecialchars($p['payment_for'] ?? '-'); ?></span></td>
-                            <td><span class="badge bg-light text-dark"><?php echo ucfirst(str_replace('_', ' ', $p['payment_method'])); ?></span></td>
-                            <td class="text-end fw-bold text-success">Rs.<?php echo number_format($p['amount'], 0); ?></td>
-                            <td class="text-muted small"><?php echo htmlspecialchars($p['notes'] ?? '-'); ?></td>
-                        </tr>
+                    <?php
+                    $changeText = '';
+                    foreach ($payments as $i => $p):
+                        $curW = $p['weight'];
+                        $prevW = $p['prev_weight'];
+                        $changeText = '';
+                        if ($curW !== null && $curW !== '') {
+                            $curW = (float)$curW;
+                            if ($prevW !== null && $prevW !== '') {
+                                $diff = $curW - (float)$prevW;
+                                if (abs($diff) > 0.01) {
+                                    if ($diff > 0) {
+                                        $changeText = ' <span class="badge text-bg-warning" title="Gained">+' . number_format($diff, 1) . '</span>';
+                                    } else {
+                                        $changeText = ' <span class="badge text-bg-success" title="Lost">' . number_format($diff, 1) . '</span>';
+                                    }
+                                } else {
+                                    $changeText = ' <span class="badge bg-light text-dark" title="No change">0.0</span>';
+                                }
+                            } else {
+                                $changeText = ' <span class="badge bg-light text-dark">New</span>';
+                            }
+                        }
+                        $curAgeTxt = '';
+                        if ($p['age'] !== null && $p['age'] !== '') {
+                            $curAgeTxt = '<span class="fw-semibold">' . (int)$p['age'] . ' yrs</span>';
+                            if ($p['prev_age'] !== null && $p['prev_age'] !== '' && (int)$p['age'] !== (int)$p['prev_age']) {
+                                $aDiff = (int)$p['age'] - (int)$p['prev_age'];
+                                $curAgeTxt .= ' <span class="badge bg-light text-dark" title="Age change">' . ($aDiff > 0 ? '+' : '') . $aDiff . '</span>';
+                            }
+                        }
+                    ?>
+                    <tr>
+                        <td><?php echo $i + 1; ?></td>
+                        <td><?php echo date('d M Y', strtotime($p['payment_date'])); ?></td>
+                        <td class="fw-semibold">
+                            <a href="ledger.php?id=<?php echo $p['member_id']; ?>" class="text-decoration-none"><?php echo htmlspecialchars($p['member_name'] ?? 'Unknown'); ?></a>
+                        </td>
+                        <td><span class="badge" style="background:linear-gradient(135deg,#f7b731,#f5a623);color:#fff;"><?php echo htmlspecialchars($p['payment_for'] ?? '-'); ?></span></td>
+                        <td><span class="badge bg-light text-dark"><?php echo ucfirst(str_replace('_', ' ', $p['payment_method'])); ?></span></td>
+                        <td>
+                            <?php if ($p['weight'] !== null && $p['weight'] !== ''): ?>
+                                <span class="fw-semibold"><?php echo number_format((float)$p['weight'], 1); ?> kg</span><?php echo $changeText; ?>
+                            <?php else: ?>
+                                <span class="text-muted">-</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($curAgeTxt !== ''): ?>
+                                <?php echo $curAgeTxt; ?>
+                            <?php else: ?>
+                                <span class="text-muted">-</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end fw-bold text-success">Rs.<?php echo number_format($p['amount'], 0); ?></td>
+                        <td class="text-muted small"><?php echo htmlspecialchars($p['notes'] ?? '-'); ?></td>
+                    </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
@@ -176,6 +232,26 @@ if ($filterMember !== '') {
                         </div>
                         <input type="hidden" name="member_id" id="payMemberId" value="<?php echo htmlspecialchars($_POST['member_id'] ?? ''); ?>">
                         <div id="payMemberResults" class="list-group position-absolute w-100 shadow mt-1" style="z-index:1050; max-height:220px; overflow-y:auto; display:none; border-radius:6px;"></div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold"><i class="fas fa-weight-hanging me-1 text-muted"></i>Current Weight (kg) <span class="text-muted fw-normal small">(optional &mdash; for progress tracking)</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-weight-hanging"></i></span>
+                                <input type="number" step="0.01" min="0" name="weight" id="payWeight" class="form-control" placeholder="e.g. 70">
+                                <span class="input-group-text">kg</span>
+                            </div>
+                            <small class="text-muted d-block mt-1" id="weightHint"></small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold"><i class="fas fa-sort-numeric-up me-1 text-muted"></i>Current Age <span class="text-muted fw-normal small">(optional)</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-sort-numeric-up"></i></span>
+                                <input type="number" step="1" min="1" max="120" name="age" id="payAge" class="form-control" placeholder="e.g. 28">
+                                <span class="input-group-text">yrs</span>
+                            </div>
+                            <small class="text-muted d-block mt-1" id="ageHint"></small>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold"><i class="fas fa-list me-1 text-muted"></i>Payment For (Enter an amount for each)</label>
@@ -212,6 +288,45 @@ if ($filterMember !== '') {
 (function() {
     var members = <?php echo json_encode($members); ?>;
     var payForRows = document.getElementById('payForRows');
+    var weightInput = document.getElementById('payWeight');
+    var weightHint = document.getElementById('weightHint');
+    var ageInput = document.getElementById('payAge');
+    var ageHint = document.getElementById('ageHint');
+
+    var weightHistory = {};
+    <?php foreach ($payments as $p): ?>
+        <?php if ($p['weight'] !== null && $p['weight'] !== ''): ?>
+            if (!weightHistory[<?php echo (int)$p['member_id']; ?>] || parseFloat(weightHistory[<?php echo (int)$p['member_id']; ?>].prev) === 0) {
+                weightHistory[<?php echo (int)$p['member_id']; ?>] = { cur: parseFloat(<?php echo (float)$p['weight']; ?>), prev: (<?php echo $p['prev_weight'] !== null && $p['prev_weight'] !== '' ? 'parseFloat(' . (float)$p['prev_weight'] . ')' : 'null'; ?>) };
+            }
+        <?php endif; ?>
+    <?php endforeach; ?>
+
+    function populateWeight(member) {
+        var w = member && member.weight ? parseFloat(member.weight) : null;
+        weightInput.value = (w > 0) ? w : '';
+        var h = weightHistory[member.id];
+        if (h && h.prev > 0) {
+            var diff = h.cur - h.prev;
+            weightHint.innerHTML = 'Last recorded: <strong>' + h.cur.toFixed(1) + ' kg</strong> (previous ' + h.prev.toFixed(1) + ' kg &mdash; ' +
+                (Math.abs(diff) > 0.01 ? (diff > 0 ? '<span class="text-warning fw-semibold">gained +' + diff.toFixed(1) + '</span>' : '<span class="text-success fw-semibold">lost ' + Math.abs(diff).toFixed(1) + '</span>') : 'no change') + ')';
+        } else if (w > 0) {
+            weightHint.innerHTML = 'Starting weight: <strong>' + w.toFixed(1) + ' kg</strong>';
+        } else {
+            weightHint.innerHTML = '';
+        }
+
+        var a = member && member.age ? parseInt(member.age, 10) : null;
+        ageInput.value = (a > 0) ? a : '';
+        ageHint.innerHTML = (a > 0) ? 'Current age: <strong>' + a + ' yrs</strong>' : '';
+    }
+
+    function resetWeight() {
+        weightInput.value = '';
+        weightHint.innerHTML = '';
+        ageInput.value = '';
+        ageHint.innerHTML = '';
+    }
 
     function escapeHtml(text) {
         var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
@@ -345,9 +460,16 @@ if ($filterMember !== '') {
         onInput: function() {
             document.getElementById('payMemberId').value = '';
             resetPayFor();
+            resetWeight();
         },
-        onSelect: renderPayFor,
-        onClear: resetPayFor
+        onSelect: function(member) {
+            renderPayFor(member);
+            populateWeight(member);
+        },
+        onClear: function() {
+            resetPayFor();
+            resetWeight();
+        }
     });
 
     // Pre-fill modal if a member was selected but submission failed
@@ -358,6 +480,7 @@ if ($filterMember !== '') {
             document.getElementById('payMemberSearch').value = found.name + (found.phone ? ' (' + found.phone + ')' : '');
             document.getElementById('clearPayMember').style.display = 'inline-block';
             renderPayFor(found);
+            populateWeight(found);
         }
     }
 

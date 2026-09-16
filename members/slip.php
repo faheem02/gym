@@ -7,7 +7,7 @@ if ($id <= 0) {
     exit('Invalid member ID.');
 }
 
-$stmt = $pdo->prepare('SELECT m.*, t.name AS trainer_name, t.phone AS trainer_phone FROM members m LEFT JOIN trainers t ON t.id = m.trainer_id WHERE m.id = ?');
+$stmt = $pdo->prepare('SELECT m.*, t.name AS trainer_name, t.phone AS trainer_phone, t.fee AS trainer_default_fee FROM members m LEFT JOIN trainers t ON t.id = m.trainer_id WHERE m.id = ?');
 $stmt->execute([$id]);
 $member = $stmt->fetch();
 
@@ -30,6 +30,35 @@ $stmtSum = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) AS total_paid FROM mem
 $stmtSum->execute([$id]);
 $totalPaid = (float)$stmtSum->fetch()['total_paid'];
 
+// members.weight = the STARTING weight. Current weight = latest measurement recorded at payment time.
+$startWeight = $member['weight'] !== null && $member['weight'] !== '' ? (float)$member['weight'] : null;
+$currentWeight = null;
+$stmtW0 = $pdo->prepare("SELECT weight FROM member_payments WHERE member_id = ? AND weight IS NOT NULL ORDER BY id DESC LIMIT 1");
+$stmtW0->execute([$id]);
+$latestWeightRow = $stmtW0->fetch();
+if ($latestWeightRow) {
+    $currentWeight = (float)$latestWeightRow['weight'];
+} else {
+    $currentWeight = $startWeight;
+    $stmtW = $pdo->prepare("SELECT weight FROM member_payments WHERE member_id = ? AND weight IS NOT NULL ORDER BY id ASC LIMIT 1");
+    $stmtW->execute([$id]);
+    $startWeightRow = $stmtW->fetch();
+    if ($startWeightRow) $startWeight = (float)$startWeightRow['weight'];
+}
+if ($startWeight === null && $currentWeight !== null) $startWeight = $currentWeight;
+$weightDiff = null;
+$weightLabel = null;
+if ($currentWeight !== null) {
+    if ($startWeight !== null && $currentWeight != $startWeight) {
+        $weightDiff = $currentWeight - $startWeight;
+        $weightLabel = abs($weightDiff) > 0.01
+            ? ($weightDiff > 0 ? 'Gained +' . number_format($weightDiff, 1) : 'Lost ' . number_format(abs($weightDiff), 1))
+            : 'No change';
+    } else {
+        $weightLabel = 'Starting weight';
+    }
+}
+
 $accessTypeLabels = [
     'gym' => ['label' => 'Gym Access', 'color' => '#2563eb', 'bg' => '#eff6ff'],
     'kids_play' => ['label' => 'Kids Play Area', 'color' => '#059669', 'bg' => '#ecfdf5'],
@@ -44,6 +73,7 @@ if ($monthlyFee == 0 && $activeSub) {
 }
 $kidsFee = (float)($member['kids_fee'] ?? 0);
 $trainerFee = (float)($member['trainer_fee'] ?? 0);
+$trainerFeeDisplay = $trainerFee > 0 ? $trainerFee : (float)($member['trainer_default_fee'] ?? 0);
 $discount = (float)($member['discount'] ?? 0);
 $totalPayable = max(0, ($regFee + $monthlyFee + $kidsFee + $trainerFee) - $discount);
 $remainingDue = max(0, $totalPayable - $totalPaid);
@@ -412,6 +442,12 @@ $autoprint = !empty($_GET['autoprint']);
                     <td>Contact</td>
                     <td><?php echo htmlspecialchars($member['phone']); ?></td>
                 </tr>
+                <?php if (!empty($member['home_address'])): ?>
+                <tr>
+                    <td>Home Address</td>
+                    <td><?php echo htmlspecialchars($member['home_address']); ?></td>
+                </tr>
+                <?php endif; ?>
                 <?php if (!empty($member['date_of_birth']) || !empty($member['age']) || !empty($member['gender'])): ?>
                 <tr>
                     <td>Personal</td>
@@ -423,6 +459,19 @@ $autoprint = !empty($_GET['autoprint']);
                         if (!empty($member['age'])) $parts[] = htmlspecialchars($member['age']) . ' years';
                         echo implode(' &middot; ', $parts);
                         ?>
+                    </td>
+                </tr>
+                <?php endif; ?>
+                <?php if ($currentWeight !== null): ?>
+                <tr>
+                    <td>Weight</td>
+                    <td>
+                        <span class="highlight-val"><?php echo number_format($currentWeight, 1); ?> kg</span>
+                        <?php if ($weightDiff !== null): ?>
+                            <span style="font-size:11px; font-weight:700; color:<?php echo $weightDiff > 0 ? '#d97706' : '#059669'; ?>;">
+                                (<?php echo htmlspecialchars($weightLabel); ?><?php echo $startWeight !== null && $startWeight != $currentWeight ? ' from ' . number_format($startWeight, 1) . ' kg' : ''; ?>)
+                            </span>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endif; ?>
@@ -447,7 +496,12 @@ $autoprint = !empty($_GET['autoprint']);
                 <?php if (!empty($member['trainer_name'])): ?>
                 <tr>
                     <td>Assigned Trainer</td>
-                    <td><?php echo htmlspecialchars($member['trainer_name']); ?><?php if (!empty($member['trainer_phone'])): ?> (<?php echo htmlspecialchars($member['trainer_phone']); ?>)<?php endif; ?></td>
+                    <td>
+                        <?php echo htmlspecialchars($member['trainer_name']); ?><?php if (!empty($member['trainer_phone'])): ?> (<?php echo htmlspecialchars($member['trainer_phone']); ?>)<?php endif; ?>
+                        <?php if ($trainerFeeDisplay > 0): ?>
+                            <span style="color:#d97706; font-weight:600;">&mdash; Fee: Rs. <?php echo number_format($trainerFeeDisplay, 0); ?></span>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endif; ?>
                 <?php if (!empty($member['area_of_interest'])): ?>
@@ -584,6 +638,9 @@ $autoprint = !empty($_GET['autoprint']);
         <div class="row"><span class="lbl">Guardian:</span><span class="ta-r"><?php echo htmlspecialchars($member['guardian_name']); ?></span></div>
         <?php endif; ?>
         <div class="row"><span class="lbl">Phone:</span><span class="ta-r"><?php echo htmlspecialchars($member['phone']); ?></span></div>
+        <?php if (!empty($member['home_address'])): ?>
+        <div class="row"><span class="lbl">Address:</span><span class="ta-r"><?php echo htmlspecialchars($member['home_address']); ?></span></div>
+        <?php endif; ?>
         <?php if (!empty($member['date_of_birth']) || !empty($member['age']) || !empty($member['gender'])): ?>
         <?php
         $tParts = [];
@@ -592,6 +649,12 @@ $autoprint = !empty($_GET['autoprint']);
         if (!empty($member['age'])) $tParts[] = htmlspecialchars($member['age']) . ' yrs';
         ?>
         <div class="row"><span class="lbl">Personal:</span><span class="ta-r"><?php echo implode(' &middot; ', $tParts); ?></span></div>
+        <?php endif; ?>
+        <?php if ($currentWeight !== null): ?>
+        <div class="row"><span class="lbl">Weight:</span><span class="ta-r"><?php echo number_format($currentWeight, 1); ?> kg<?php if ($weightDiff !== null && $weightDiff != 0): ?> (<?php echo htmlspecialchars($weightLabel); ?>)<?php endif; ?></span></div>
+        <?php endif; ?>
+        <?php if (!empty($member['trainer_name'])): ?>
+        <div class="row"><span class="lbl">Trainer:</span><span class="ta-r"><?php echo htmlspecialchars($member['trainer_name']); ?><?php if ($trainerFeeDisplay > 0): ?> (Rs. <?php echo number_format($trainerFeeDisplay, 0); ?>)<?php endif; ?></span></div>
         <?php endif; ?>
         <div class="row"><span class="lbl">Join Date:</span><span class="ta-r"><?php echo date('d M Y', strtotime($member['join_date'])); ?></span></div>
         <div class="row"><span class="lbl">Access:</span><span class="ta-r"><?php echo htmlspecialchars($currAccess['label']); ?></span></div>

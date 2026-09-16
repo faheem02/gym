@@ -10,7 +10,9 @@ if ($msg === 'updated') echo '<div class="alert alert-success py-2"><i class="fa
 if ($msg === 'deleted') echo '<div class="alert alert-success py-2"><i class="fas fa-check-circle me-1"></i>Member deleted.</div>';
 if ($msg === 'delete_failed') echo '<div class="alert alert-danger py-2"><i class="fas fa-exclamation-circle me-1"></i>Member could not be deleted because related records exist. Delete their payments/subscriptions first.</div>';
 
-$sql = 'SELECT m.*, t.name AS trainer_name FROM members m LEFT JOIN trainers t ON m.trainer_id = t.id';
+$sql = "SELECT m.*, t.name AS trainer_name,
+    (SELECT mp.weight FROM member_payments mp WHERE mp.member_id = m.id AND mp.weight IS NOT NULL ORDER BY mp.id DESC LIMIT 1) AS latest_weight
+    FROM members m LEFT JOIN trainers t ON m.trainer_id = t.id";
 $params = [];
 if ($search !== '') {
     $sql .= ' WHERE m.name LIKE ? OR m.phone LIKE ? OR m.membership_type LIKE ? OR t.name LIKE ?';
@@ -57,6 +59,7 @@ $inactiveCount = $totalMembers - $activeCount;
                     <th>Gender</th>
                     <th>Membership</th>
                     <th>Join Date</th>
+                    <th>Weight</th>
                     <th>Trainer</th>
                     <th>Status</th>
                     <th class="text-end">Actions</th>
@@ -64,7 +67,7 @@ $inactiveCount = $totalMembers - $activeCount;
             </thead>
             <tbody>
                 <?php if (empty($members)): ?>
-                    <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No members found.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-4"><i class="fas fa-users-slash me-1"></i>No members found.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($members as $m): ?>
                     <tr>
@@ -90,6 +93,15 @@ $inactiveCount = $totalMembers - $activeCount;
                         </td>
                         <td><?php echo date('d M Y', strtotime($m['join_date'])); ?></td>
                         <td>
+                            <?php
+                            $dispW = !empty($m['latest_weight']) ? $m['latest_weight'] : $m['weight'];
+                            if (!empty($dispW)): ?>
+                                <span class="fw-semibold"><i class="fas fa-weight-hanging me-1 text-muted"></i><?php echo number_format((float)$dispW, 1); ?> kg</span>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
                             <?php if (!empty($m['trainer_name'])): ?>
                                 <span class="badge text-bg-dark"><i class="fas fa-user-tie me-1"></i><?php echo htmlspecialchars($m['trainer_name']); ?></span>
                             <?php else: ?>
@@ -104,6 +116,7 @@ $inactiveCount = $totalMembers - $activeCount;
                         <td class="text-end">
                             <div class="btn-group-actions d-inline-flex gap-1">
                                 <a href="slip.php?id=<?php echo $m['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary" title="Print Slip"><i class="fas fa-print"></i></a>
+                                <a href="weight_history.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-warning" title="Weight History"><i class="fas fa-weight-hanging"></i></a>
                                 <a href="view.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-secondary" title="View"><i class="fas fa-eye"></i></a>
                                 <a href="edit.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fas fa-pen"></i></a>
                                 <a href="ledger.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-outline-dark" title="Ledger"><i class="fas fa-book"></i></a>
@@ -152,13 +165,14 @@ $inactiveCount = $totalMembers - $activeCount;
                 <th>Gender</th>
                 <th>Membership</th>
                 <th>Join Date</th>
+                <th>Weight</th>
                 <th>Trainer</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($members)): ?>
-                <tr><td colspan="8" style="text-align:center;padding:20px;color:#666;">No members found.</td></tr>
+                <tr><td colspan="9" style="text-align:center;padding:20px;color:#666;">No members found.</td></tr>
             <?php endif; ?>
             <?php foreach ($members as $i => $m): ?>
             <tr class="<?php echo $i % 2 === 0 ? 'even' : ''; ?>">
@@ -168,6 +182,7 @@ $inactiveCount = $totalMembers - $activeCount;
                 <td><?php echo !empty($m['gender']) ? ucfirst(htmlspecialchars($m['gender'])) : '-'; ?></td>
                 <td><?php echo !empty($m['membership_type']) ? htmlspecialchars($m['membership_type']) : '-'; ?></td>
                 <td><?php echo date('d M Y', strtotime($m['join_date'])); ?></td>
+                <td><?php $dispW = !empty($m['latest_weight']) ? $m['latest_weight'] : $m['weight']; echo !empty($dispW) ? number_format((float)$dispW, 1) . ' kg' : '-'; ?></td>
                 <td><?php echo !empty($m['trainer_name']) ? htmlspecialchars($m['trainer_name']) : '-'; ?></td>
                 <td><?php echo ucfirst($m['status']); ?></td>
             </tr>
@@ -175,7 +190,7 @@ $inactiveCount = $totalMembers - $activeCount;
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="8" class="bold">Total — <?php echo $totalMembers; ?> member(s) &nbsp;|&nbsp; Active: <?php echo $activeCount; ?> &nbsp;|&nbsp; Inactive: <?php echo $inactiveCount; ?></td>
+                <td colspan="9" class="bold">Total — <?php echo $totalMembers; ?> member(s) &nbsp;|&nbsp; Active: <?php echo $activeCount; ?> &nbsp;|&nbsp; Inactive: <?php echo $inactiveCount; ?></td>
             </tr>
         </tfoot>
     </table>

@@ -16,6 +16,7 @@ if (!$member) {
 
 $error = '';
 $trainers = $pdo->query('SELECT id, name, specialty, fee FROM trainers ORDER BY name ASC')->fetchAll();
+$membershipTypes = $pdo->query("SELECT value FROM member_options WHERE category = 'membership_type' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
 $plans = $pdo->query('SELECT id, name, duration_days, price FROM plans WHERE status = "active" ORDER BY price ASC')->fetchAll();
 $fitnessGoals = $pdo->query("SELECT DISTINCT value FROM member_options WHERE category IN ('fitness_goal', 'area_of_interest') ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN);
 if (empty($fitnessGoals)) {
@@ -31,8 +32,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $guardian_name = trim($_POST['guardian_name'] ?? '') ?: null;
     $phone = trim($_POST['phone'] ?? '');
+    $home_address = trim($_POST['home_address'] ?? '') ?: null;
     $date_of_birth = trim($_POST['date_of_birth'] ?? '') ?: null;
     $age = (isset($_POST['age']) && $_POST['age'] !== '') ? (int)$_POST['age'] : null;
+    $weight = (isset($_POST['weight']) && $_POST['weight'] !== '') ? (float)$_POST['weight'] : null;
     $gender = $_POST['gender'] ?? null;
     $membership_type = trim($_POST['membership_type'] ?? '') ?: null;
     $join_date = trim($_POST['join_date'] ?? '');
@@ -57,8 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $stmt = $pdo->prepare('UPDATE members SET name = ?, guardian_name = ?, phone = ?, date_of_birth = ?, age = ?, gender = ?, membership_type = ?, area_of_interest = ?, join_date = ?, status = ?, access_type = ?, registration_fee = ?, monthly_fee = ?, trainer_fee = ?, kids_fee = ?, discount = ?, trainer_id = ? WHERE id = ?');
-            $stmt->execute([$name, $guardian_name, $phone, $date_of_birth, $age, $gender, $membership_type, $area_of_interest, $join_date, $status, $access_type, $registration_fee, $monthly_fee, $trainer_id > 0 ? $trainer_fee : 0, $kids_fee, $discount, $trainer_id > 0 ? $trainer_id : null, $id]);
+            $stmt = $pdo->prepare('UPDATE members SET name = ?, guardian_name = ?, phone = ?, home_address = ?, date_of_birth = ?, age = ?, weight = ?, gender = ?, membership_type = ?, area_of_interest = ?, join_date = ?, status = ?, access_type = ?, registration_fee = ?, monthly_fee = ?, trainer_fee = ?, kids_fee = ?, discount = ?, trainer_id = ? WHERE id = ?');
+            $stmt->execute([$name, $guardian_name, $phone, $home_address, $date_of_birth, $age, $weight, $gender, $membership_type, $area_of_interest, $join_date, $status, $access_type, $registration_fee, $monthly_fee, $trainer_id > 0 ? $trainer_fee : 0, $kids_fee, $discount, $trainer_id > 0 ? $trainer_id : null, $id]);
 
             if ($plan_id > 0) {
                 $stmt2 = $pdo->prepare('SELECT * FROM plans WHERE id = ?');
@@ -110,6 +113,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label class="form-label"><i class="fas fa-phone me-1 text-muted"></i>Phone *</label>
                 <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($_POST['phone'] ?? $member['phone']); ?>" required>
             </div>
+            <div class="mb-3">
+                <label class="form-label"><i class="fas fa-home me-1 text-muted"></i>Home Address</label>
+                <textarea name="home_address" class="form-control" rows="2" placeholder="House #, Street, Area, City"><?php echo htmlspecialchars($_POST['home_address'] ?? ($member['home_address'] ?? '')); ?></textarea>
+            </div>
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label"><i class="fas fa-birthday-cake me-1 text-muted"></i>Date of Birth</label>
@@ -120,6 +127,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="number" name="age" min="0" max="120" class="form-control" placeholder="Enter age" value="<?php echo htmlspecialchars($_POST['age'] ?? ($member['age'] ?? '')); ?>">
                 </div>
                 <div class="col-md-4 mb-3">
+                    <label class="form-label"><i class="fas fa-weight-hanging me-1 text-muted"></i>Weight (kg)</label>
+                    <div class="input-group">
+                        <input type="number" name="weight" step="0.01" min="0" class="form-control" placeholder="e.g. 72" value="<?php echo htmlspecialchars($_POST['weight'] ?? ($member['weight'] ?? '')); ?>">
+                        <span class="input-group-text">kg</span>
+                    </div>
+                    <small class="text-muted">Starting weight &mdash; later changes are recorded each time a payment is made</small>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
                     <label class="form-label"><i class="fas fa-venus-mars me-1 text-muted"></i>Gender</label>
                     <select name="gender" class="form-select">
                         <option value="">-- Select --</option>

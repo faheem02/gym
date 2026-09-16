@@ -133,6 +133,9 @@ $daysLeft = $activeSub ? (int)((strtotime($activeSub['end_date']) - time()) / 86
                     <li class="mb-3"><i class="fas fa-user-shield text-muted me-2"></i><span class="text-muted">Guardian / Parent:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['guardian_name']); ?></span></li>
                     <?php endif; ?>
                     <li class="mb-3"><i class="fas fa-phone text-muted me-2"></i><span class="text-muted">Phone:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['phone']); ?></span></li>
+                    <?php if (!empty($member['home_address'])): ?>
+                    <li class="mb-3"><i class="fas fa-home text-muted me-2"></i><span class="text-muted">Home Address:</span> <span class="fw-semibold"><?php echo htmlspecialchars($member['home_address']); ?></span></li>
+                    <?php endif; ?>
                     <?php if (!empty($member['date_of_birth']) || !empty($member['age'])): ?>
                     <li class="mb-3"><i class="fas fa-birthday-cake text-muted me-2"></i><span class="text-muted">DOB / Age:</span> <span class="fw-semibold">
                         <?php
